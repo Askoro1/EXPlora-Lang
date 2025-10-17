@@ -44,7 +44,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             for field_name, field_value in field_values.items():
                 try:
                     infer_expression_type(field_value, env)
-                except:
+                except TypeError:
                     raise TypeError(f"Error inferring type of {field_name}: {field_value}")
 
             return ast_nodes.Type(ast_nodes.RecordType(typ), 0)
@@ -67,7 +67,20 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             pass
 
         case ast_nodes.IfExpr(condition=condition, then_expr, else_expr):
-            pass
+            condition_type = infer_expression_type(condition, env)
+
+            if condition_type != ast_nodes.Type(ast_nodes.PrimitiveType("bool"), 0):
+                raise TypeError(f"The condition of the if-expression must be of type bool, but it is {condition_type} instead.")
+
+            then_expr_type = infer_expression_type(then_expr, env)
+            else_expr_type = infer_expression_type(else_expr, env)
+
+            if then_expr_type.base_type != else_expr_type.base_type:
+                raise TypeError(f"Branches must match types: {then_expr_type.base_type} | {else_expr_type.base_type}")
+            elif else_expr_type.dimension != then_expr_type.dimension:
+                raise TypeError(f"Branches must match dimensions: {then_expr_type.dimension} | {else_expr_type.dimension}")
+
+            return ast_nodes.Type(then_expr_type.base_type, then_expr_type.dimension)
 
         case _:
             raise TypeError(f"Unexpected expression type: {type(expr)}")
