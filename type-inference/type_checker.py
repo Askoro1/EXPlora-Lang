@@ -26,8 +26,17 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 raise TypeError(f"Unexpected expression type: {type(expr)}")
 
         case ast_nodes.ArrayLiteral(value):
+            first_elem_type = infer_expression_type(value[0], env)
 
-            pass
+            for element in value[1:]:
+                elem_type = infer_expression_type(element, env)
+                if elem_type != first_elem_type:
+                    raise TypeError(f"Array types are not homogeneous: {first_elem_type}")
+                if elem_type.dimension != first_elem_type.dimension:
+                    raise TypeError(f"Array elements must have the same dimension: {first_elem_type}")
+
+            return ast_nodes.Type(ast_nodes.PrimitiveType("array"), first_elem_type.dimension + 1)
+
         case ast_nodes.LambdaLiteral(params, body):
 
             pass
