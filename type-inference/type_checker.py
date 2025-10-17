@@ -35,13 +35,19 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 if elem_type.dimension != first_elem_type.dimension:
                     raise TypeError(f"Array elements must have the same dimension: {first_elem_type}")
 
-            return ast_nodes.Type(ast_nodes.PrimitiveType("array"), first_elem_type.dimension + 1)
+            return ast_nodes.Type(first_elem_type.base_type, first_elem_type.dimension + 1)
 
         case ast_nodes.LambdaLiteral(params, body):
+            pass
 
-            pass
         case ast_nodes.RecordLiteral(typ, field_values):
-            pass
+            for field_name, field_value in field_values.items():
+                try:
+                    infer_expression_type(field_value, env)
+                except:
+                    raise TypeError(f"Error inferring type of {field_name}: {field_value}")
+
+            return ast_nodes.Type(ast_nodes.RecordType(typ), 0)
 
         case ast_nodes.VarRef(name):
             if name not in env:
