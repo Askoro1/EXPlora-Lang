@@ -1,6 +1,4 @@
-import ast_nodes
-
-# Takes the Abstract Syntax Tree (AST) as input, produces a Typed Abstract Syntax Tree (TAST) as output.
+from typeinference import ast_nodes
 
 """
 Takes an expression as input and returns its type as output.
@@ -38,7 +36,24 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(first_elem_type.base_type, first_elem_type.dimension + 1)
 
         case ast_nodes.LambdaLiteral(params, body):
-            pass
+            for p in params:
+                if p.type is None:
+                    raise TypeError(f"Lambda parameter '{p.name}' must have an explicit type")
+
+            lambda_env = env.copy()
+            for p in params:
+                lambda_env[p.name] = p.type
+
+            # Infer the return type from the body expression
+            body_type = infer_expression_type(body, lambda_env)
+
+            # Build a function type from parameter and return types
+            fn_base = ast_nodes.FunctionType(
+                param_types=[p.type for p in params],
+                return_type=body_type
+            )
+
+            return ast_nodes.Type(fn_base, 0)
 
         case ast_nodes.RecordLiteral(typ, field_values):
             for field_name, field_value in field_values.items():
@@ -55,10 +70,44 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return env[name]
 
         case ast_nodes.FieldRef(record, field_name):
-            pass
+            record_type = infer_expression_type(record, env)
+            if not isinstance(record_type.base_type, ast_nodes.RecordType):
+                raise TypeError(f"Cannot access field '{field_name}' on non-record type {record_type}")
+
+            record_name = record_type.base_type.name
+            if record_name not in env or not isinstance(env[record_name].base_type, ast_nodes.RecordType):
+                raise TypeError(f"Unknown record type: {record_name}")
+
+            # The record declaration must be in the environment
+            record_decl = env[record_name]
+            fields = record_decl.base_type.fields if hasattr(record_decl.base_type, "fields") else {}
+
+            if field_name not in fields:
+                raise TypeError(f"Field '{field_name}' not found in record '{record_name}'")
+
+            field_type = fields[field_name]
+            return ast_nodes.Type(field_type.base_type, field_type.dimension + record_type.dimension)
 
         case ast_nodes.FunctionCall(function, arguments):
-            pass
+            function_type = infer_expression_type(function, env)
+
+            if not isinstance(function_type.base_type, ast_nodes.FunctionType):
+                raise TypeError(f"Trying to call non-function value of type {function_type}")
+
+            arg_types = [infer_expression_type(arg, env) for arg in arguments]
+            param_types = function_type.base_type.param_types
+
+            if len(arg_types) != len(param_types):
+                raise TypeError(f"Argument count mismatch: expected {len(param_types)}, got {len(arg_types)}")
+
+            # Check base-type compatibility and collect dimensions
+            for a_t, p_t in zip(arg_types, param_types):
+                if a_t.base_type != p_t.base_type:
+                    raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
+
+            result_dim = max(function_type.dimension, *(a.dimension for a in arg_types))
+            ret_type = function_type.base_type.return_type
+            return ast_nodes.Type(ret_type.base_type, ret_type.dimension + result_dim)
 
         case ast_nodes.OperatorCall(operator, operands):
             # Get the types of all operands
