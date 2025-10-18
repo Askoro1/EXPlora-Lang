@@ -16,12 +16,12 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
     # Check which expression type we are dealing with
     match expr:
         case ast_nodes.PrimitiveLiteral(value):
-            if isinstance(value, int):
+            if isinstance(value, bool):
+                return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), 0)
+            elif isinstance(value, int):
                 return ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
             elif isinstance(value, float):
                 return ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0)
-            elif isinstance(value, bool):
-                return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), 0)
             else:
                 raise TypeError(f"Unexpected expression type: {type(expr)}")
 
@@ -64,12 +64,76 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             pass
 
         case ast_nodes.Block(statements):
-            pass
+            block_env = env.copy()
+            last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
 
-        case ast_nodes.IfExpr(condition=condition, then_expr, else_expr):
+            for stmt in statements:
+                match stmt:
+                    case ast_nodes.ExprStmt(expression):
+                        last_type = infer_expression_type(expression, block_env)
+
+                    case ast_nodes.Assignment(lvalue, rvalue):
+                        match lvalue:
+                            case ast_nodes.VarRef(name):
+                                if name not in block_env:
+                                    raise TypeError(f"Variable '{name}' not declared before assignment")
+                                ltype = block_env[name]
+                            case ast_nodes.FieldRef():
+                                ltype = infer_expression_type(lvalue, block_env)
+                            case _:
+                                raise TypeError("Invalid assignment target")
+
+                        rtype = infer_expression_type(rvalue, block_env)
+                        if (ltype.base_type != rtype.base_type) or (ltype.dimension != rtype.dimension):
+                            raise TypeError(f"Assignment mismatch: {ltype} vs {rtype}")
+
+                        last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
+
+                    case ast_nodes.DeclStmt(declaration):
+                        match declaration:
+                            case ast_nodes.VarDecl(name, type_, mutable, initializer):
+                                init_type = infer_expression_type(initializer, block_env) if initializer else None
+                                if type_ and init_type and (
+                                        init_type.base_type != type_.base_type or init_type.dimension != type_.dimension
+                                ):
+                                    raise TypeError(f"Initializer type mismatch for '{name}': {init_type} vs {type_}")
+                                var_type = type_ or init_type
+                                if var_type is None:
+                                    raise TypeError(f"Cannot determine type of variable '{name}'")
+                                block_env[name] = var_type
+
+                            case ast_nodes.RecordTypeDecl(name, fields):
+                                for field in fields:
+                                    if field.type is None:
+                                        raise TypeError(f"Field '{field.name}' in record '{name}' has no type")
+                                    if field.initializer:
+                                        infer_expression_type(field.initializer, block_env)
+                                block_env[name] = ast_nodes.Type(ast_nodes.RecordType(name), 0)
+
+                            case ast_nodes.FunctionDef():
+                                pass
+
+                    case ast_nodes.WhileLoop(condition, body):
+                        cond_type = infer_expression_type(condition, block_env)
+                        if not (isinstance(cond_type.base_type, ast_nodes.PrimitiveType)
+                                and cond_type.base_type.name == "bool"
+                                and cond_type.dimension == 0):
+                            raise TypeError(f"While condition must be bool, got {cond_type}")
+                        # assume body is a Block expression node
+                        infer_expression_type(body, block_env)
+                        last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
+
+                    case _:
+                        raise TypeError(f"Unsupported statement in block: {stmt}")
+
+            return last_type
+
+        case ast_nodes.IfExpr(condition, then_expr, else_expr):
             condition_type = infer_expression_type(condition, env)
 
-            if condition_type != ast_nodes.Type(ast_nodes.PrimitiveType("bool"), 0):
+            if not (isinstance(condition_type.base_type, ast_nodes.PrimitiveType)
+                    and condition_type.base_type.name == "bool"
+                    and condition_type.dimension == 0):
                 raise TypeError(f"The condition of the if-expression must be of type bool, but it is {condition_type} instead.")
 
             then_expr_type = infer_expression_type(then_expr, env)
