@@ -61,7 +61,22 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             pass
 
         case ast_nodes.OperatorCall(operator, operands):
-            pass
+            # Get the types of all operands
+            operand_types = [infer_expression_type(op, env) for op in operands]
+            first_type = operand_types[0]
+
+            for t in operand_types[1:]:
+                if t.base_type != first_type.base_type:
+                    raise TypeError(f"Operand types do not match: {operand_types}")
+
+            result_dim = max(t.dimension for t in operand_types)
+
+            if operator in ("+", "-", "*", "/", "%"):
+                return ast_nodes.Type(first_type.base_type, result_dim)
+            elif operator in ("<", "<=", ">", ">=", "==", "!="):
+                return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), result_dim)
+            else:
+                raise TypeError(f"Unknown operator: {operator}")
 
         case ast_nodes.Block(statements):
             block_env = env.copy()
