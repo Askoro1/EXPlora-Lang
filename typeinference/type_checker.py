@@ -1,4 +1,4 @@
-from typeinference import ast_nodes
+import ast_nodes
 
 """
 Takes an expression as input and returns its type as output.
