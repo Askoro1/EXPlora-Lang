@@ -5,7 +5,7 @@ Takes an expression as input and returns its type as output.
 
 Args:
   expr: ast_nodes.Expression - The expression in question. 
-  env: dict[str, ast_nodes.Type] - The 
+  env: dict[str, ast_nodes.Type] - The environment where program variables are recorded. 
 
 Returns:
   ast_nodes.Type: The type of the expression.
