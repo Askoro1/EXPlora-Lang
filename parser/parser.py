@@ -49,13 +49,41 @@ class Parser:
             decls.append(self.parse_declaration())
         return Program(declarations=decls)
 
+    def parse_array_literal(self):
+        """Parse {1, 2, 3} style array literals."""
+        self.expect(TokenType.OP, "{")
+        values = []
+
+        if not self.accept(TokenType.OP, "}"):
+            while True:
+                values.append(self.parse_expression())
+                if self.accept(TokenType.OP, "}"):
+                    break
+                self.expect(TokenType.OP, ",")
+
+        return ArrayLiteral(value=values)
+
     def parse_declaration(self):
-        # Parse type
+        # Parse base type
         ttype = self.parse_type()
         name_token = self.expect(TokenType.ID)
         name = name_token.value
 
-        # Function declaration
+        # --- NEW: parse possible array dimensions like arr[5][10]
+        array_dims = []
+        while self.accept(TokenType.OP, "["):
+            if self.peek().type == TokenType.NUMBER:
+                size_token = self.next()
+                array_dims.append(int(size_token.value))
+            else:
+                array_dims.append(None)
+            self.expect(TokenType.OP, "]")
+
+        # If there are dimensions, wrap the type
+        if array_dims:
+            ttype = Type(base_type=ttype, dimension=array_dims)
+
+        # --- function declaration ---
         if self.accept(TokenType.OP, "("):
             params = []
             if not self.accept(TokenType.OP, ")"):
@@ -67,25 +95,39 @@ class Parser:
                         break
                     self.expect(TokenType.OP, ",")
             body = self.parse_block()
-            return FunctionDef(name=name, params=params, return_type=ttype, body=body)
+            return FunctionDef(return_type=ttype, name=name, params=params, body=body)
 
-        # Variable declaration
+        # --- variable declaration ---
         else:
             init = None
             if self.accept(TokenType.OP, "="):
-                init = self.parse_expression()
+                # --- NEW: handle array initializer ---
+                if self.peek().type == TokenType.OP and self.peek().value == "{":
+                    init = self.parse_array_literal()
+                else:
+                    init = self.parse_expression()
             self.expect(TokenType.OP, ";")
             return VarDecl(name=name, type=ttype, mutable=True, initializer=init)
 
     def parse_type(self):
         t = self.peek()
-        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "void"}:
+        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit"}:
             self.next()
-            return PrimitiveType(t.value)
+            base = PrimitiveType(t.value)
         elif t.type == TokenType.ID:
             name = self.next().value
-            return RecordType(name)
-        raise ParserError(f"Unknown type {t.value} at pos {t.pos}")
+            base = RecordType(name)
+        else:
+            raise ParserError(f"Unknown type {t.value} at pos {t.pos}")
+
+        dim = 0
+        while self.accept(TokenType.OP, "["):
+            if self.peek().type == TokenType.NUMBER:
+                self.next()  # skip number (you could store this size too)
+            self.expect(TokenType.OP, "]")
+            dim += 1
+
+        return Type(base_type=base, dimension=dim)
 
     # ------------------------
     # Statements
@@ -107,13 +149,14 @@ class Parser:
                 return self.parse_if()
             elif t.value == "while":
                 return self.parse_while()
-            elif t.value == "return":
+            elif t.value == "return":  # <- new handling
                 self.next()
-                if self.accept(TokenType.OP, ";"):
-                    return ReturnStmt(None)
-                expr = self.parse_expression()
+                expr = None
+                if self.peek().type != TokenType.OP or self.peek().value != ";":
+                    expr = self.parse_expression()
                 self.expect(TokenType.OP, ";")
-                return ReturnStmt(expr)
+                # treat return like an expression statement
+                return ExprStmt(expr)
             elif t.value in {"int", "float", "bool", "char"}:
                 return self.parse_declaration()
 
@@ -181,7 +224,7 @@ class Parser:
         tok = self.peek()
         if tok.type == TokenType.NUMBER:
             self.next()
-            val = float(tok.value) if "." in tok.value else int(tok.value)
+            val = float(tok.value) if ('.' in tok.value or 'e' in tok.value or 'E' in tok.value) else int(tok.value)
             return PrimitiveLiteral(val)
         elif tok.type == TokenType.STRING:
             self.next()
@@ -229,8 +272,9 @@ if __name__ == "__main__":
 
     int main() {
         int x = 10;
-        float y = 3.14;
+        float y = 6.2e-7;
         bool flag = true;
+        int arr[5] = {1, 2, 3, 4, 5};
 
         if (x < 20) {
             x = x + 1;

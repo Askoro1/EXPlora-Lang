@@ -44,11 +44,21 @@ class PrettyPrinter:
         elif isinstance(node, RecordType):
             return node.name
 
+
         elif isinstance(node, Block):
             s = "{\n"
             self.indent()
-            for stmt in node.statements:
-                s += self.write_indent() + self.pprint(stmt) + "\n"
+            count = len(node.statements)
+
+            for i, stmt in enumerate(node.statements):
+                is_last = (i == count - 1)
+
+                # Automatically return the last expression
+                if is_last and isinstance(stmt, ExprStmt):
+                    s += self.write_indent() + "return " + self.pprint(stmt.expression) + ";\n"
+                else:
+                    s += self.write_indent() + self.pprint(stmt) + "\n"
+
             self.dedent()
             s += self.write_indent() + "}"
             return s
@@ -91,12 +101,6 @@ class PrettyPrinter:
             else:
                 return str(node.value)
 
-        elif isinstance(node, ReturnStmt):
-            if node.value:
-                return f"return {self.pprint(node.value)};"
-            else:
-                return "return;"
-
         else:
             raise ValueError(f"Unknown AST node type: {type(node).__name__}")
 
@@ -111,6 +115,7 @@ if __name__ == '__main__':
         int x = 10;
         float y = 3.14;
         bool flag = true;
+        int arr[5] = {1, 2, 3, 4, 5};
     
         if (x < y) {
             x = x + 1;

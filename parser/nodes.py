@@ -85,10 +85,6 @@ class DeclStmt:
 class ExprStmt:
     expression: 'Expression'
 
-@dataclass
-class ReturnStmt:
-    value: Optional['Expression'] = None
-
 
 Statement = Assignment | WhileLoop | DeclStmt | ExprStmt
 

@@ -36,7 +36,7 @@ TOKEN_SPEC = [
     ("WHITESPACE", r"[ \t\n\r]+"),
     ("COMMENT",    r"//[^\n]*"),
     ("MCOMMENT",   r"/\*.*?\*/"),
-    ("NUMBER",     r"\d+(\.\d+)?"),
+    ("NUMBER",     r"\d+(\.\d+)?([eE][+-]?\d+)?"),
     ("CHAR",       r"'(\\.|[^\\'])'"),
     ("STRING",     r"\"(\\.|[^\"])*\""),
     ("ID",         r"[A-Za-z_][A-Za-z0-9_]*"),
@@ -52,7 +52,7 @@ MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TO
 # Keywords
 # ------------------------
 KEYWORDS = {
-    "int", "float", "char", "bool", "void",
+    "int", "float", "char", "bool", "unit",
     "if", "else", "while", "for", "return",
     "true", "false", "sizeof"
 }
