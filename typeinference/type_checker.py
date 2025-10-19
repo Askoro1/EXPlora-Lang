@@ -13,6 +13,7 @@ Returns:
 def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.Type]) -> ast_nodes.Type:
     # Check which expression type we are dealing with
     match expr:
+        # Primitive types are just returned
         case ast_nodes.PrimitiveLiteral(value):
             if isinstance(value, bool):
                 return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), 0)
@@ -23,6 +24,9 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             else:
                 raise TypeError(f"Unexpected expression type: {type(expr)}")
 
+        # Check if all array elements are the same type, then return that type
+        # and dimension_size + 1 (since an array of scalars is a vector, array
+        # of vectors is a matrix, etc.
         case ast_nodes.ArrayLiteral(value):
             first_elem_type = infer_expression_type(value[0], env)
 
@@ -36,10 +40,12 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(first_elem_type.base_type, first_elem_type.dimension + 1)
 
         case ast_nodes.LambdaLiteral(params, body):
+            # Assume parameters already have typed due to the partially typed AST
             for p in params:
                 if p.type is None:
                     raise TypeError(f"Lambda parameter '{p.name}' must have an explicit type")
 
+            # Local environment for the lambda function
             lambda_env = env.copy()
             for p in params:
                 lambda_env[p.name] = p.type
@@ -47,7 +53,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             # Infer the return type from the body expression
             body_type = infer_expression_type(body, lambda_env)
 
-            # Build a function type from parameter and return types
+            # Build the return type from parameter and return types
             fn_base = ast_nodes.FunctionType(
                 param_types=[p.type for p in params],
                 return_type=body_type
@@ -55,14 +61,15 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
 
             return ast_nodes.Type(fn_base, 0)
 
-        case ast_nodes.RecordLiteral(typ, field_values):
+        case ast_nodes.RecordLiteral(record_name, field_values):
+            # Check that each record field type is valid
             for field_name, field_value in field_values.items():
                 try:
                     infer_expression_type(field_value, env)
                 except TypeError:
                     raise TypeError(f"Error inferring type of {field_name}: {field_value}")
 
-            return ast_nodes.Type(ast_nodes.RecordType(typ), 0)
+            return ast_nodes.Type(ast_nodes.RecordType(record_name), 0)
 
         case ast_nodes.VarRef(name):
             if name not in env:
@@ -94,9 +101,11 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             if not isinstance(function_type.base_type, ast_nodes.FunctionType):
                 raise TypeError(f"Trying to call non-function value of type {function_type}")
 
+            # Assume that our arguments are typed already
             arg_types = [infer_expression_type(arg, env) for arg in arguments]
             param_types = function_type.base_type.param_types
 
+            # If the number of expected parameters differs from the actually typed out ones
             if len(arg_types) != len(param_types):
                 raise TypeError(f"Argument count mismatch: expected {len(param_types)}, got {len(arg_types)}")
 
@@ -105,7 +114,9 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 if a_t.base_type != p_t.base_type:
                     raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
 
+            # Get highest dimension there is, return that due to polymorphism
             result_dim = max(function_type.dimension, *(a.dimension for a in arg_types))
+
             ret_type = function_type.base_type.return_type
             return ast_nodes.Type(ret_type.base_type, ret_type.dimension + result_dim)
 
@@ -128,7 +139,11 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 raise TypeError(f"Unknown operator: {operator}")
 
         case ast_nodes.Block(statements):
+            # To deal with a block, we need a copy environment
             block_env = env.copy()
+
+            # Assume there will be no final statement that returns anything,
+            # therefore make the type of the last statement "unit".
             last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
 
             for stmt in statements:
@@ -175,6 +190,8 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                 block_env[name] = ast_nodes.Type(ast_nodes.RecordType(name), 0)
 
                             case ast_nodes.FunctionDef():
+                                # Globally handled in typeinference/type_annotator.py
+                                # Are nested functions like this required?
                                 pass
 
                     case ast_nodes.WhileLoop(condition, body):
@@ -183,8 +200,10 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                 and cond_type.base_type.name == "bool"
                                 and cond_type.dimension == 0):
                             raise TypeError(f"While condition must be bool, got {cond_type}")
+
                         # assume body is a Block expression node
                         infer_expression_type(body, block_env)
+
                         last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
 
                     case _:
