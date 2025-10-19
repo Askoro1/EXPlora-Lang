@@ -93,12 +93,14 @@ Statement = Assignment | WhileLoop | DeclStmt | ExprStmt
 @dataclass
 class VarRef:
     name: str
+    type: Optional['Type'] = None
 
 
 @dataclass
 class FieldRef:
     record: 'Expression'
     field_name: str
+    type: Optional['Type'] = None
 
 
 PlaceExpression = VarRef | FieldRef
@@ -108,6 +110,7 @@ PlaceExpression = VarRef | FieldRef
 @dataclass
 class PrimitiveLiteral:
     value: int | float | bool
+    type: Optional['Type'] = None
 
 
 @dataclass
@@ -134,18 +137,21 @@ Literal = PrimitiveLiteral | ArrayLiteral | LambdaLiteral | RecordLiteral
 class FunctionCall:
     function: 'Expression'
     arguments: list['Expression']
+    type: Optional['Type'] = None
 
 
 @dataclass
 class OperatorCall:
     operator: str
     operands: list['Expression']
+    type: Optional['Type'] = None
 
 
 @dataclass
 class Block:
     # Final statement is the result of the block, if it is an expression statement.
     statements: list[Statement]
+    type: Optional['Type'] = None
 
 
 @dataclass
@@ -153,6 +159,7 @@ class IfExpr:
     condition: 'Expression'
     then_expr: 'Expression'
     else_expr: 'Expression'
+    type: Optional['Type'] = None
 
 
 Expression = Literal | PlaceExpression | FunctionCall | OperatorCall | Block | IfExpr

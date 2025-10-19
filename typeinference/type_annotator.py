@@ -1,4 +1,4 @@
-from typeinference import type_checker, ast_nodes
+import type_checker, ast_nodes
 
 """
 Entry point function. Goes through all of the program declarations and calls
@@ -33,10 +33,10 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
         case ast_nodes.VarDecl(name, declared_type, mutable, initializer):
             if initializer:
                 # Recursively go down until leaf node level
-                annotate_expression(initializer, env)
+                initializer = annotate_expression(initializer, env)
 
                 # Get the type of the current expression
-                inferred_type = type_checker.infer_expression_type(initializer, env)
+                inferred_type = initializer.type
 
                 # Check if declared & inferred values agree on dimension and type
                 if declared_type and inferred_type and (
