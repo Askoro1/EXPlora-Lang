@@ -1,6 +1,6 @@
-from tokenizer import tokenization
+from tokenizer import tokenize
 from parser import Parser
-from pretty_printer import pretty
+from pretty_printer import PrettyPrinter
 
 if __name__ == "__main__":
     source = r'''
@@ -22,9 +22,15 @@ if __name__ == "__main__":
     '''
     print("SOURCE:")
     print(source)
-    tokens = tokenization(source)
+    tokens = tokenize(source)
 
     p = Parser(tokens)
     ast = p.parse()
+
+    print(ast)
+
+    printer = PrettyPrinter()
+    pretty_ast = printer.pprint(ast)
+
     print("\nAST (pretty):\n")
-    print(pretty(ast))
+    print(pretty_ast)
