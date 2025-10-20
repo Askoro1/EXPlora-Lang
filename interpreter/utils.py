@@ -32,7 +32,7 @@ class RuntimeValue:
 
     def __repr__(self):
         t = self.static_type
-        return f"RuntimeValue(value={self.value!r}, static_type={t}, shape={self.shape}, is_fn={self.is_function})"
+        return f"RuntimeValue(value={self.value!r}, static_type={t}, shape={self.shape}, is_fn={self.is_function}, func_meta={self.func_meta})"
 
 
 # helper functions
