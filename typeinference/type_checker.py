@@ -96,13 +96,19 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(field_type.base_type, field_type.dimension + record_type.dimension)
 
         case ast_nodes.FunctionCall(function, arguments):
+            # ⊢ f : ((p1^i1, p2^i2) -> pr^j)^d     ⊢ a1 : p1^(k1 - i1)   ⊢ a2 : p2^(k2 - i2)
+            # ------------------------------------------------------------------------------
+            #                 ⊢ (f a1 a2) : pr^(max_l (kl + j + d))
+
             function_type = infer_expression_type(function, env)
+            # function_type = Type(FunctionType([T(p1, i1), T(p2, i2)], T(pr, j)), d)
 
             if not isinstance(function_type.base_type, ast_nodes.FunctionType):
                 raise TypeError(f"Trying to call non-function value of type {function_type}")
 
             # Assume that our arguments are typed already
             arg_types = [infer_expression_type(arg, env) for arg in arguments]
+            # arg_types = [T(a1, k1 - i1), T(a2, k2 - i2)]
             param_types = function_type.base_type.param_types
 
             # If the number of expected parameters differs from the actually typed out ones
@@ -110,12 +116,13 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 raise TypeError(f"Argument count mismatch: expected {len(param_types)}, got {len(arg_types)}")
 
             # Check base-type compatibility and collect dimensions
-            for a_t, p_t in zip(arg_types, param_types):
+            ap_t = zip(arg_types, param_types)
+            for a_t, p_t in ap_t:
                 if a_t.base_type != p_t.base_type:
                     raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
 
             # Get highest dimension there is, return that due to polymorphism
-            result_dim = max(function_type.dimension, *(a.dimension for a in arg_types))
+            result_dim = max(a.dimension - p.dimension for (a, p) in ap_t) + function_type.base_type.return_type.dimension + function_type.dimension
 
             ret_type = function_type.base_type.return_type
             return ast_nodes.Type(ret_type.base_type, ret_type.dimension + result_dim)
