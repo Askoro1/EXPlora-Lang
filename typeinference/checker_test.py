@@ -82,6 +82,183 @@ class TypeCheckerTests(unittest.TestCase):
         expected = ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0)
         self.assertEqual(result, expected)
 
+    """
+    Check function call without broadcasting.
+    pow(3, 2) -> int
+    """
+    def test_function_call_scalar(self):
+        pow_type = ast_nodes.Type(ast_nodes.FunctionType(
+            param_types=[
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+            ],
+            return_type=ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        ), 0)
+
+        env = {"pow": pow_type}
+        node = ast_nodes.FunctionCall(
+            function=ast_nodes.VarRef("pow"),
+            arguments=[
+                ast_nodes.PrimitiveLiteral(3),
+                ast_nodes.PrimitiveLiteral(2)
+            ]
+        )
+        result = type_checker.infer_expression_type(node, env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        self.assertEqual(result, expected)
+
+    """
+    Check broadcasting for pow([1,2,3], 2) -> [int]
+    """
+    def test_function_call_broadcast_array_scalar(self):
+        pow_type = ast_nodes.Type(ast_nodes.FunctionType(
+            param_types=[
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+            ],
+            return_type=ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        ), 0)
+
+        env = {
+            "pow": pow_type,
+            "x": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 1)
+        }
+
+        node = ast_nodes.FunctionCall(
+            function=ast_nodes.VarRef("pow"),
+            arguments=[
+                ast_nodes.VarRef("x"),
+                ast_nodes.PrimitiveLiteral(2)
+            ]
+        )
+        result = type_checker.infer_expression_type(node, env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("int"), 1)
+        self.assertEqual(result, expected)
+
+    """
+    Check broadcasting for pow(2, [1,2,3]) -> [int]
+    """
+    def test_function_call_broadcast_scalar_array(self):
+        pow_type = ast_nodes.Type(ast_nodes.FunctionType(
+            param_types=[
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+            ],
+            return_type=ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        ), 0)
+
+        env = {
+            "pow": pow_type,
+            "x": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 1)
+        }
+
+        node = ast_nodes.FunctionCall(
+            function=ast_nodes.VarRef("pow"),
+            arguments=[
+                ast_nodes.PrimitiveLiteral(2),
+                ast_nodes.VarRef("x")
+            ]
+        )
+        result = type_checker.infer_expression_type(node, env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("int"), 1)
+        self.assertEqual(result, expected)
+
+    """
+    Check failure for incompatible dimensions.
+    pow([1,2], [[1,2],[3,4]]) should raise TypeError
+    """
+    def test_function_call_invalid_broadcast(self):
+        pow_type = ast_nodes.Type(ast_nodes.FunctionType(
+            param_types=[
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+            ],
+            return_type=ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        ), 0)
+
+        env = {
+            "pow": pow_type,
+            "a": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 1),
+            "b": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 2)
+        }
+
+        node = ast_nodes.FunctionCall(
+            function=ast_nodes.VarRef("pow"),
+            arguments=[
+                ast_nodes.VarRef("a"),
+                ast_nodes.VarRef("b")
+            ]
+        )
+        with self.assertRaises(TypeError):
+            type_checker.infer_expression_type(node, env)
+
+    """
+    Check nested array literal increments dimension correctly.
+    [[1,2],[3,4]] -> int^2
+    """
+    def test_nested_array_literal(self):
+        node = ast_nodes.ArrayLiteral([
+            ast_nodes.ArrayLiteral([
+                ast_nodes.PrimitiveLiteral(1),
+                ast_nodes.PrimitiveLiteral(2)
+            ]),
+            ast_nodes.ArrayLiteral([
+                ast_nodes.PrimitiveLiteral(3),
+                ast_nodes.PrimitiveLiteral(4)
+            ])
+        ])
+        result = type_checker.infer_expression_type(node, self.env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("int"), 2)
+        self.assertEqual(result, expected)
+
+    """
+    Check if-expression where both branches return same type.
+    if (true) 1 else 2 -> int^0
+    """
+    def test_if_expr_same_type(self):
+        node = ast_nodes.IfExpr(
+            condition=ast_nodes.PrimitiveLiteral(True),
+            then_expr=ast_nodes.PrimitiveLiteral(1),
+            else_expr=ast_nodes.PrimitiveLiteral(2)
+        )
+        result = type_checker.infer_expression_type(node, self.env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+        self.assertEqual(result, expected)
+
+    """
+    Check if-expression with mismatched branch types raises error.
+    if (true) 1 else true -> TypeError
+    """
+    def test_if_expr_type_mismatch(self):
+        node = ast_nodes.IfExpr(
+            condition=ast_nodes.PrimitiveLiteral(True),
+            then_expr=ast_nodes.PrimitiveLiteral(1),
+            else_expr=ast_nodes.PrimitiveLiteral(False)
+        )
+        with self.assertRaises(TypeError):
+            type_checker.infer_expression_type(node, self.env)
+
+    """
+    Check record field access adds array dimension correctly.
+    p: [Point] -> p.x : float^1
+    """
+    def test_field_ref_with_array_dimension(self):
+        point_record = ast_nodes.RecordType("Point")
+        point_record.fields = {
+            "x": ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0),
+            "y": ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0)
+        }
+        env = {
+            "Point": ast_nodes.Type(point_record, 0),
+            "p": ast_nodes.Type(ast_nodes.RecordType("Point"), 1)
+        }
+        field_ref = ast_nodes.FieldRef(
+            record=ast_nodes.VarRef("p"),
+            field_name="x"
+        )
+        result = type_checker.infer_expression_type(field_ref, env)
+        expected = ast_nodes.Type(ast_nodes.PrimitiveType("float"), 1)
+        self.assertEqual(result, expected)
 
 if __name__ == "__main__":
     unittest.main()

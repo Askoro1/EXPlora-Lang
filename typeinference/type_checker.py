@@ -1,6 +1,33 @@
 import ast_nodes
 
 """
+Implements array broadcasting rules similar to NumPy.
+Aligns dimensions from the right and checks compatibility.
+
+Args:
+    param_dim: The expected dimension of the respective parameter.
+    arg_dim: The actual dimension of a provided argument.
+
+Returns:
+    int: The resulting broadcasted dimension.
+"""
+# I find it useful to think of this applies to pow([1,2,3], 2) when trying to understand broadcasting.
+# I added that as an example throughout.
+def broadcast_dimensions(param_dims: list[int], arg_dims: list[int]) -> int:
+    # param_dims [0, 0] : expected int, returns int
+    # arg_dims [1, 0] : given array, returns int
+
+    max_dim = max(param_dims + arg_dims)
+
+    # If the dimensions are different and neither one is a scalar then we can’t broadcast them
+    # We start from the tail because broadcasting aligns shapes from the right-hand side.
+    # That’s the only way to correctly match arrays of different dimensionality
+    for p, a in zip(reversed(param_dims), reversed(arg_dims)):
+        if p != a and p != 0 and a != 0:
+            raise TypeError(f"Cannot broadcast dimensions {p} and {a}")
+    return max_dim
+
+"""
 Takes an expression as input and returns its type as output.
 
 Args:
@@ -114,11 +141,21 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 if a_t.base_type != p_t.base_type:
                     raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
 
-            # Get highest dimension there is, return that due to polymorphism
-            result_dim = max(function_type.dimension, *(a.dimension for a in arg_types))
+            # Compute broadcasted dimension for all parameters and arguments
+            param_dims = [p.dimension for p in param_types]
+            arg_dims = [a.dimension for a in arg_types]
+
+            try:
+                # if any two argument dimensions are incompatible, fail
+                for i in range(len(arg_dims)):
+                    for j in range(i + 1, len(arg_dims)):
+                        _ = broadcast_dimensions([arg_dims[i]], [arg_dims[j]])
+                broadcasted_dim = max(arg_dims)
+            except TypeError as e:
+                raise TypeError(f"Cannot broadcast in call to function '{getattr(function, 'name', '<lambda>')}': {e}")
 
             ret_type = function_type.base_type.return_type
-            return ast_nodes.Type(ret_type.base_type, ret_type.dimension + result_dim)
+            return ast_nodes.Type(ret_type.base_type, ret_type.dimension + broadcasted_dim)
 
         case ast_nodes.OperatorCall(operator, operands):
             # Get the types of all operands
