@@ -44,7 +44,6 @@ class PrettyPrinter:
         elif isinstance(node, RecordType):
             return node.name
 
-
         elif isinstance(node, Block):
             s = "{\n"
             self.indent()
@@ -52,8 +51,7 @@ class PrettyPrinter:
 
             for i, stmt in enumerate(node.statements):
                 is_last = (i == count - 1)
-
-                # Automatically return the last expression
+                # Automatically return the last expression if it's ExprStmt
                 if is_last and isinstance(stmt, ExprStmt):
                     s += self.write_indent() + "return " + self.pprint(stmt.expression) + ";\n"
                 else:
@@ -101,6 +99,33 @@ class PrettyPrinter:
             else:
                 return str(node.value)
 
+        elif isinstance(node, ArrayLiteral):
+            elems = ", ".join(self.pprint(v) for v in node.value)
+            return "{" + elems + "}"
+
+        elif isinstance(node, RecordLiteral):
+            fields = ", ".join(f"{k}: {self.pprint(v)}" for k, v in node.field_values.items())
+            return f"{node.type} {{ {fields} }}"
+
+        elif isinstance(node, LambdaLiteral):
+            params = ", ".join(f"{self.pprint(p.type)} {p.name}" for p in node.params)
+            body = self.pprint(node.body)
+            return f"[ ]({params}) {body}"
+
+
+        elif isinstance(node, Type):
+            s = self.pprint(node.base_type)
+
+            if isinstance(node.dimension, int) and node.dimension > 0:
+                s += "[]" * node.dimension
+            elif isinstance(node.dimension, list):
+                for dim in node.dimension:
+                    if dim is None:
+                        s += "[]"
+                    else:
+                        s += f"[{dim}]"
+            return s
+
         else:
             raise ValueError(f"Unknown AST node type: {type(node).__name__}")
 
@@ -110,23 +135,25 @@ if __name__ == '__main__':
     int add(int a, int b) {
         return a + b;
     }
-    
+
     int main() {
         int x = 10;
         float y = 3.14;
         bool flag = true;
         int arr[5] = {1, 2, 3, 4, 5};
-    
+        auto f = [](int x, int y) { return x + y; };
+        Point p = Point { x: 1, y: 2 };
+
         if (x < y) {
             x = x + 1;
         } else {
             x = x - 1;
         }
-    
+
         while (x < 20) {
             x = x + 2;
         }
-    
+
         int result = add(x, 5);
         return result;
     }

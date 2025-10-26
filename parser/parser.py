@@ -69,7 +69,7 @@ class Parser:
         name_token = self.expect(TokenType.ID)
         name = name_token.value
 
-        # --- NEW: parse possible array dimensions like arr[5][10]
+        # --- parse array dimensions ---
         array_dims = []
         while self.accept(TokenType.OP, "["):
             if self.peek().type == TokenType.NUMBER:
@@ -79,7 +79,6 @@ class Parser:
                 array_dims.append(None)
             self.expect(TokenType.OP, "]")
 
-        # If there are dimensions, wrap the type
         if array_dims:
             ttype = Type(base_type=ttype, dimension=array_dims)
 
@@ -97,21 +96,33 @@ class Parser:
             body = self.parse_block()
             return FunctionDef(return_type=ttype, name=name, params=params, body=body)
 
-        # --- variable declaration ---
-        else:
-            init = None
-            if self.accept(TokenType.OP, "="):
-                # --- NEW: handle array initializer ---
-                if self.peek().type == TokenType.OP and self.peek().value == "{":
-                    init = self.parse_array_literal()
-                else:
-                    init = self.parse_expression()
-            self.expect(TokenType.OP, ";")
-            return VarDecl(name=name, type=ttype, mutable=True, initializer=init)
+        # variable declaration
+        init = None
+        if self.accept(TokenType.OP, "="):
+            # Check if it's a record literal: ID followed by {
+            if self.peek().type == TokenType.ID and self.pos + 1 < len(self.tokens) and \
+                    self.tokens[self.pos + 1].type == TokenType.OP and self.tokens[self.pos + 1].value == "{":
+                typename = self.next().value  # consume the ID
+                init = self.parse_record_literal(typename)
+            # Check if it's an array literal
+            elif self.peek().type == TokenType.OP and self.peek().value == "{":
+                init = self.parse_array_literal()
+            else:
+                init = self.parse_expression()
+
+        self.expect(TokenType.OP, ";")
+
+        # --- handle 'auto' ---
+        if isinstance(ttype.base_type, PrimitiveType) and ttype.base_type.name == "auto":
+            if init is None:
+                raise ParserError(f"'auto' variable '{name}' must have an initializer at pos {name_token.pos}")
+            ttype = Type(PrimitiveType("auto"), 0)
+
+        return VarDecl(name=name, type=ttype, mutable=True, initializer=init)
 
     def parse_type(self):
         t = self.peek()
-        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit"}:
+        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}:
             self.next()
             base = PrimitiveType(t.value)
         elif t.type == TokenType.ID:
@@ -129,6 +140,46 @@ class Parser:
 
         return Type(base_type=base, dimension=dim)
 
+    def parse_lambda_literal(self):
+        # Parse [] (...) -> type { ... }
+        self.expect(TokenType.OP, "[")
+        self.expect(TokenType.OP, "]")
+
+        self.expect(TokenType.OP, "(")
+        params = []
+        if not self.accept(TokenType.OP, ")"):
+            while True:
+                ptype = self.parse_type()
+                pname = self.expect(TokenType.ID).value
+                params.append(VarDecl(name=pname, type=ptype, mutable=False))
+                if self.accept(TokenType.OP, ")"):
+                    break
+                self.expect(TokenType.OP, ",")
+
+        rettype = Type(PrimitiveType("unit"), 0)
+        if self.accept(TokenType.OP, "->"):
+            rettype = self.parse_type()
+
+        body = self.parse_block()
+        return LambdaLiteral(params=params, body=body)
+
+
+    def parse_record_literal(self, typename: str):
+        # Parse Type { field: value, ... }
+        self.expect(TokenType.OP, "{")
+        fields = {}
+        if not self.accept(TokenType.OP, "}"):
+            while True:
+                field_name = self.expect(TokenType.ID).value
+                self.expect(TokenType.OP, ":")
+                field_val = self.parse_expression()
+                fields[field_name] = field_val
+                if self.accept(TokenType.OP, "}"):
+                    break
+                self.expect(TokenType.OP, ",")
+
+        return RecordLiteral(type=typename, field_values=fields)
+
     # ------------------------
     # Statements
     # ------------------------
@@ -144,25 +195,32 @@ class Parser:
     def parse_statement(self):
         t = self.peek()
 
+        # Handle declarations: primitive or user-defined types
+        if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
+                or (t.type == TokenType.ID):
+            # Peek ahead: if next token is ID, this is a declaration
+            if self.tokens[self.pos + 1].type == TokenType.ID:
+                return self.parse_declaration()
+
+        # Handle control flow
         if t.type == TokenType.KW:
             if t.value == "if":
                 return self.parse_if()
             elif t.value == "while":
                 return self.parse_while()
-            elif t.value == "return":  # <- new handling
+            elif t.value == "return":
                 self.next()
                 expr = None
                 if self.peek().type != TokenType.OP or self.peek().value != ";":
                     expr = self.parse_expression()
                 self.expect(TokenType.OP, ";")
-                # treat return like an expression statement
                 return ExprStmt(expr)
-            elif t.value in {"int", "float", "bool", "char"}:
-                return self.parse_declaration()
 
+        # Block
         if t.type == TokenType.OP and t.value == "{":
             return self.parse_block()
 
+        # Otherwise, expression statement
         expr = self.parse_expression()
         self.expect(TokenType.OP, ";")
         return ExprStmt(expr)
@@ -222,7 +280,9 @@ class Parser:
 
     def parse_primary(self):
         tok = self.peek()
-        if tok.type == TokenType.NUMBER:
+        if tok.type == TokenType.KW and tok.value == "auto":
+            raise ParserError(f"Unexpected 'auto' at pos {tok.pos} — it should only appear at start of a declaration")
+        elif tok.type == TokenType.NUMBER:
             self.next()
             val = float(tok.value) if ('.' in tok.value or 'e' in tok.value or 'E' in tok.value) else int(tok.value)
             return PrimitiveLiteral(val)
@@ -238,6 +298,10 @@ class Parser:
         elif tok.type == TokenType.ID:
             self.next()
             node: Expression = VarRef(tok.value)
+            # Record literal: Type { ... }
+            if self.peek().type == TokenType.OP and self.peek().value == "{":
+                record = self.parse_record_literal(tok.value)
+                return record
             while True:
                 if self.accept(TokenType.OP, "("):
                     args = []
@@ -256,6 +320,8 @@ class Parser:
                     continue
                 break
             return node
+        elif tok.type == TokenType.OP and tok.value == "[":
+            return self.parse_lambda_literal()
         elif tok.type == TokenType.OP and tok.value == "(":
             self.next()
             expr = self.parse_expression()
@@ -275,6 +341,12 @@ if __name__ == "__main__":
         float y = 6.2e-7;
         bool flag = true;
         int arr[5] = {1, 2, 3, 4, 5};
+        
+        auto f = [](int x, int y) {
+            return x + y;
+        };
+        
+        Point p = Point { x: 1, y: 2 };
 
         if (x < 20) {
             x = x + 1;

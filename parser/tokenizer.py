@@ -41,7 +41,7 @@ TOKEN_SPEC = [
     ("STRING",     r"\"(\\.|[^\"])*\""),
     ("ID",         r"[A-Za-z_][A-Za-z0-9_]*"),
     # Multi-char operators
-    ("OP",         r"==|!=|<=|>=|\+\+|--|\+=|-=|\*=|/=|&&|\|\||<<|>>|->"),
+    ("OP",         r"==|!=|<=|>=|\+\+|--|\+=|-=|\*=|/=|&&|\|\||<<|>>|->|=>"),
     # Single-character operators & punctuation
     ("SINGLE",     r"[+\-*/%<>=!&|^~\[\]\(\)\{\},;.:]"),
 ]
@@ -52,7 +52,7 @@ MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TO
 # Keywords
 # ------------------------
 KEYWORDS = {
-    "int", "float", "char", "bool", "unit",
+    "int", "float", "char", "bool", "unit", "auto",
     "if", "else", "while", "for", "return",
     "true", "false", "sizeof"
 }
@@ -105,6 +105,13 @@ if __name__ == "__main__":
     int main() {
         int x = 42;
         float y = 3.14;
+        
+        auto f = [](int x, int y) -> int {
+            return x + y;
+        };
+        
+        Point p = Point { x: 1, y: 2 };
+        
         if (x < y) {
             x = x + 1;
         } else {
