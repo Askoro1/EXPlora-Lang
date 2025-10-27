@@ -158,19 +158,49 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(ret_type.base_type, ret_type.dimension + broadcasted_dim)
 
         case ast_nodes.OperatorCall(operator, operands):
-            # Get the types of all operands
+            # Indexing operator: takes an array and an index and returns the element type
+            if operator in ("[]", "index"):
+                if len(operands) != 2:
+                    raise TypeError("Indexing expects exactly two operands: array and index")
+                arr_type = infer_expression_type(operands[0], env)
+                idx_type = infer_expression_type(operands[1], env)
+                # Index must be an int scalar (dimension 0)
+                if not (
+                    isinstance(idx_type.base_type, ast_nodes.PrimitiveType)
+                    and idx_type.base_type.name == "int"
+                    and idx_type.dimension == 0
+                ):
+                    raise TypeError(f"Array index must be an int scalar, got {idx_type}")
+                # Cannot index scalars
+                if arr_type.dimension == 0:
+                    raise TypeError(f"Cannot index non-array type {arr_type}")
+                # Return the element type: same base type, dimension reduced by one
+                return ast_nodes.Type(arr_type.base_type, arr_type.dimension - 1)
+
+            # Obtain the types of all operands
             operand_types = [infer_expression_type(op, env) for op in operands]
             first_type = operand_types[0]
 
+            # Special case: unary sizeof operator returns the size of the outermost
+            # dimension.  It always returns an int scalar regardless of operand
+            if operator == 'sizeof':
+                return ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+
+            # Ensure all operands have the same base type for binary operators
             for t in operand_types[1:]:
                 if t.base_type != first_type.base_type:
                     raise TypeError(f"Operand types do not match: {operand_types}")
 
             result_dim = max(t.dimension for t in operand_types)
 
-            if operator in ("+", "-", "*", "/", "%"):
+            # Arithmetic and concatenation operators return the same base type
+            if operator in ("+", "-", "*", "/", "%", "++"):
                 return ast_nodes.Type(first_type.base_type, result_dim)
+            # Comparison operators yield boolean values
             elif operator in ("<", "<=", ">", ">=", "==", "!="):
+                return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), result_dim)
+            # Logical operators (short-circuiting) also yield boolean values
+            elif operator in ("&&", "||", "and", "or"):
                 return ast_nodes.Type(ast_nodes.PrimitiveType("bool"), result_dim)
             else:
                 raise TypeError(f"Unknown operator: {operator}")
