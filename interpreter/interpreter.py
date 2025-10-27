@@ -54,7 +54,7 @@ class Interpreter:
     def _check_type_match(self, expected: Optional[Type], actual: RuntimeValue):
         if expected is None:
             return
-        # if actual.static_type is set — we just check directly
+        # if actual.static_type is set - we just check directly
         if actual.static_type is not None:
             if self._type_eq(expected, actual.static_type):
                 return
@@ -233,6 +233,13 @@ class Interpreter:
                     return RuntimeValue(-a, static_type=None)
                 if node.operator == 'not':
                     return RuntimeValue(not a, static_type=None)
+                if node.operator == 'sizeof':
+                    if NUMPY_ENABLED and isinstance(a, _np.ndarray):
+                        dim = a.shape[0] if a.ndim > 0 else 0
+                        return RuntimeValue(dim, static_type=None)
+                    if isinstance(a, list):
+                        return RuntimeValue(len(a), static_type=None)
+                    raise RuntimeTypeError("sizeof expects an array")
             # binary
             if len(ops) == 2:
                 a = ops[0].value
@@ -245,9 +252,16 @@ class Interpreter:
                         elif op == '-': res = a - b
                         elif op == '*': res = a * b
                         elif op == '/': res = a / b
+                        elif op == '%': res = a % b
                         elif op == '@': res = a @ b
                         elif op in ('==','!=','<','>','<=','>='):
                             res = eval(f"a {op} b")
+                        elif op in ('&&', 'and'):
+                            res = _np.logical_and(a, b)
+                        elif op in ('||', 'or'):
+                            res = _np.logical_or(a, b)
+                        elif op == '++':
+                            res = _np.concatenate((a, b), axis=0)
                         elif op == 'index' or op == '[]':
                             try:
                                 res = a[b]
@@ -264,14 +278,20 @@ class Interpreter:
                     elif op == '-': res = a - b
                     elif op == '*': res = a * b
                     elif op == '/': res = a / b
+                    elif op == '%': res = a % b
                     elif op == '==': res = a == b
                     elif op == '!=': res = a != b
                     elif op == '<': res = a < b
                     elif op == '>': res = a > b
                     elif op == '<=': res = a <= b
                     elif op == '>=': res = a >= b
-                    elif op == 'and': res = a and b
-                    elif op == 'or': res = a or b
+                    elif op in ('and', '&&'): res = bool(a) and bool(b)
+                    elif op in ('or', '||'): res = bool(a) or bool(b)
+                    elif op == '++':
+                        if isinstance(a, list) and isinstance(b, list):
+                            res = a + b
+                        else:
+                            raise RuntimeTypeError("`++` expects two arrays (lists)")
                     elif op == 'index' or op == '[]':
                         try:
                             res = a[b]
@@ -389,5 +409,3 @@ class Interpreter:
                 raise RuntimeTypeError(f"Unsupported declaration: {type(decl).__name__}")
 
         return self.global_frame
-
-
