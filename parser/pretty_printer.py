@@ -120,7 +120,7 @@ class PrettyPrinter:
         elif isinstance(node, LambdaLiteral):
             params = ", ".join(f"{self.pprint(p.type)} {p.name}" for p in node.params)
             body = self.pprint(node.body)
-            return f"[ ]({params}) {body}"
+            return f"[]({params}) {body}"
 
         elif isinstance(node, Type):
             s = self.pprint(node.base_type)
