@@ -358,5 +358,107 @@ class TestInterpreter(unittest.TestCase):
         interp.exec_statement(assign, gf)
         self.assertEqual(gf.lookup("o").value["inner"]["b"], 99)
 
+    def test_operator_scalar_array_broadcast(self):
+        # Test (scalar + array) broadcasting
+        expr = OperatorCall('+', [PrimitiveLiteral(10),
+                                  ArrayLiteral([PrimitiveLiteral(1), PrimitiveLiteral(2), PrimitiveLiteral(3)])])
+
+        prog = Program(declarations=[])
+        interp = Interpreter(prog)
+        gf = interp.run()
+        result = interp.eval_expression(expr, gf)
+
+        self.assertTrue(np.allclose(result.value, np.array([11, 12, 13])))
+        self.assertEqual(result.shape, (3,))
+
+    def test_operator_array_array_broadcast(self):
+        # Test (array + array) broadcasting (1x3 + 3x1)
+
+        a1 = ArrayLiteral(
+            [ArrayLiteral([PrimitiveLiteral(1), PrimitiveLiteral(2), PrimitiveLiteral(3)])])  # shape (1,3)
+
+        a2 = ArrayLiteral([
+            ArrayLiteral([PrimitiveLiteral(10)]),
+            ArrayLiteral([PrimitiveLiteral(20)]),
+            ArrayLiteral([PrimitiveLiteral(30)])
+        ])  # shape (3,1)
+
+        expr = OperatorCall('+', [a1, a2])
+
+        prog = Program(declarations=[])
+        interp = Interpreter(prog)
+        gf = interp.run()
+        result = interp.eval_expression(expr, gf)
+
+        self.assertTrue(np.allclose(result.value, np.array([[11, 12, 13],
+                                                            [21, 22, 23],
+                                                            [31, 32, 33]])))
+        self.assertEqual(result.shape, (3, 3))
+
+    def test_function_broadcast_array_and_scalar(self):
+        # Define f(x: float): float { return x * 2 }
+        param = VarDecl(name="x", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        body = OperatorCall('*', [VarRef("x"), PrimitiveLiteral(2)])
+        f_def = FunctionDef(name="f", params=[param],
+                            body=body,
+                            return_type=Type(PrimitiveType("float"), 0))
+
+        prog = Program(declarations=[f_def])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        # Call f on array — should broadcast elementwise
+        call = FunctionCall(VarRef("f"), [ArrayLiteral([
+            PrimitiveLiteral(1.0), PrimitiveLiteral(2.0), PrimitiveLiteral(3.0)
+        ])])
+
+        result = interp.eval_expression(call, gf)
+
+        self.assertTrue(np.allclose(result.value, np.array([2.0, 4.0, 6.0])))
+        self.assertEqual(result.shape, (3,))
+
+    def test_function_broadcast_array_and_scalar2(self):
+        # Define g(a: float, b: float): float { return a + b }
+        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        param_b = VarDecl(name="b", type=Type(PrimitiveType("int"), 0), mutable=True, initializer=None)
+        body = OperatorCall('+', [VarRef("a"), VarRef("b")])
+        g_def = FunctionDef(name="g", params=[param_a, param_b], body=body, return_type=Type(PrimitiveType("float"), 0))
+
+        prog = Program(declarations=[g_def])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        # Call g([1,2,3], 10)
+        call = FunctionCall(VarRef("g"), [
+            ArrayLiteral([PrimitiveLiteral(1), PrimitiveLiteral(2), PrimitiveLiteral(3)]),
+            PrimitiveLiteral(10)
+        ])
+        result = interp.eval_expression(call, interp.global_frame)
+
+        self.assertTrue(np.allclose(result.value, np.array([11, 12, 13])))
+        self.assertEqual(result.shape, (3,))
+
+    def test_function_broadcast_array_pair(self):
+        # g(a: float, b: float): float { return a * b }
+        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        param_b = VarDecl(name="b", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        body = OperatorCall('*', [VarRef("a"), VarRef("b")])
+        g_def = FunctionDef(name="g", params=[param_a, param_b], body=body, return_type=Type(PrimitiveType("float"), 0))
+
+        prog = Program(declarations=[g_def])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        # Call g([1,2,3], [10,20,30])
+        call = FunctionCall(VarRef("g"), [
+            ArrayLiteral([PrimitiveLiteral(1), PrimitiveLiteral(2), PrimitiveLiteral(3)]),
+            ArrayLiteral([PrimitiveLiteral(10), PrimitiveLiteral(20), PrimitiveLiteral(30)])
+        ])
+        result = interp.eval_expression(call, interp.global_frame)
+
+        self.assertTrue(np.allclose(result.value, np.array([10, 40, 90])))
+        self.assertEqual(result.shape, (3,))
+
+
 if __name__ == "main":
     unittest.main()

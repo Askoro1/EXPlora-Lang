@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Tuple
 from ast_nodes import *
-from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array)
+from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
 from builtins_ import BUILTINS
 
 
@@ -194,7 +194,7 @@ class Interpreter:
             if NUMPY_ENABLED:
                 items = _np.array(items)
             shape = shape_of_array(items)
-            if isinstance(shape, list):
+            if isinstance(shape, tuple):
                 dim = shape[0]
             else:
                 dim = 0
@@ -253,12 +253,11 @@ class Interpreter:
             return_type = None
             if hasattr(node, 'type') and isinstance(node.type, Type):
                 return_type = node.type
-            meta = {
-                'params': params,
-                'return_type': return_type,
-                'node': node
-            }
-            rv = RuntimeValue(value=None, static_type=return_type, is_function=True, func_meta={**meta, 'closure': frame})
+
+            rv = RuntimeValue(value=None, static_type=return_type, is_function=True, func_meta={'params': params,
+                                                                                                'return_type': return_type,
+                                                                                                'node': node,
+                                                                                                'closure': frame})
             return rv
 
         if isinstance(node, FunctionCall):
@@ -277,8 +276,11 @@ class Interpreter:
             # FunctionDef case
             if isinstance(node.function, VarRef) and node.function.name in self.functions:
                 fn_node = self.functions[node.function.name]
-                # prepare new frame with closure (current `frame`)
-                new_frame = Frame(parent=frame)
+
+                arg_rvs = []
+                arg_vals = []
+                shapes = []
+
                 # bind parameters (positional)
                 if len(fn_node.params) != len(node.arguments):
                     raise RuntimeTypeError(f"Function '{fn_node.name}' expected {len(fn_node.params)} args, got {len(node.arguments)}")
@@ -286,13 +288,46 @@ class Interpreter:
                     arg_rv = self.eval_expression(arg_expr, frame)
                     # check type
                     self._check_type_match(param_decl.type, arg_rv)
-                    new_frame.define(param_decl.name, arg_rv)
-                # evaluate body (body is Expression)
-                ret = self.eval_expression(fn_node.body, new_frame)
-                # check return type
-                if fn_node.return_type is not None:
-                    self._check_type_match(fn_node.return_type, ret)
-                return ret
+                    arg_rvs.append(arg_rv)
+                    arg_val = arg_rv.value
+                    arg_vals.append(arg_val)
+                    if isinstance(arg_val, _np.ndarray):
+                        shapes.append(arg_val.shape)
+
+                if shapes:
+                    # vectorized elementwise evaluation
+                    bshape = broadcast_shapes(*shapes)
+                    result = _np.empty(bshape, dtype=object)
+
+                    for idx in _np.ndindex(bshape):
+                        call_args = []
+                        for param_decl, val in zip(fn_node.params, arg_vals):
+                            if isinstance(val, _np.ndarray):
+                                call_args.append(RuntimeValue(val[idx], static_type=param_decl.type))
+                            else:
+                                call_args.append(RuntimeValue(val, static_type=param_decl.type))
+                        # prepare new frame with closure (current `frame`)
+                        new_frame = Frame(parent=frame)
+                        for param_decl, rv in zip(fn_node.params, call_args):
+                            new_frame.define(param_decl.name, rv)
+                        res = self.eval_expression(fn_node.body, new_frame)
+                        result[idx] = res.value
+
+                    return RuntimeValue(result,
+                                        static_type=Type(base_type=RecordType("array"), dimension=result.shape[0]),
+                                        shape=result.shape)
+                else:
+                    # scalar call
+                    # prepare new frame with closure (current `frame`)
+                    new_frame = Frame(parent=frame)
+                    for param_decl, rv in zip(fn_node.params, arg_rvs):
+                        new_frame.define(param_decl.name, rv)
+                    # evaluate body (body is Expression)
+                    ret = self.eval_expression(fn_node.body, new_frame)
+                    # check return type
+                    if fn_node.return_type is not None:
+                        self._check_type_match(fn_node.return_type, ret)
+                    return ret
 
             # Lambda closure case: fn_rv.func_meta has closure and node
             if 'node' in fm and fm['node'] is not None:
@@ -325,7 +360,7 @@ class Interpreter:
                 if node.operator == '-':
                     return RuntimeValue(-a, static_type=None)
                 if node.operator == 'not':
-                    return RuntimeValue(not a, static_type=None)
+                    return RuntimeValue(_np.logical_not(a), static_type=None)
                 if node.operator == 'sizeof':
                     if NUMPY_ENABLED and isinstance(a, _np.ndarray):
                         dim = a.shape[0] if a.ndim > 0 else 0
