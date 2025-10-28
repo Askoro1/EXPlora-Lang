@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
-from ast_nodes import *
-from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, build)
+from ..ast_nodes import *
+from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, build)
 
 # ----- Builtins -----
 

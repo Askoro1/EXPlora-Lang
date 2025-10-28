@@ -1,6 +1,6 @@
 import unittest
-import ast_nodes
-import type_checker
+from .. import ast_nodes
+from . import type_checker
 
 
 class TestTypeCheckerNewFeatures(unittest.TestCase):

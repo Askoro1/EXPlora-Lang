@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
-from ast_nodes import *
+from ..ast_nodes import *
 
 
 # if numpy is available we use numpy under the hood for effective array ops

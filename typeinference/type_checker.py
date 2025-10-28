@@ -1,4 +1,4 @@
-import ast_nodes
+from .. import ast_nodes
 
 """
 Implements array broadcasting rules similar to NumPy.

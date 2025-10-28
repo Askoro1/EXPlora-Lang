@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
 
-from ast_nodes import *
-from utils import RuntimeTypeError, RuntimeValue, shape_of_array
-from builtins_ import _builtin_zeros, _builtin_ones, _builtin_shape
-from interpreter import Interpreter
+from ..ast_nodes import *
+from .utils import RuntimeTypeError, RuntimeValue, shape_of_array
+from .builtins_ import _builtin_zeros, _builtin_ones, _builtin_shape
+from .interpreter import Interpreter
 
 
 def make_type(name: str, dim: int = 0):
@@ -460,5 +460,5 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(result.shape, (3,))
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     unittest.main()

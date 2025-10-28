@@ -1,6 +1,6 @@
 from typing import List, Optional
-from nodes import *
-from tokenizer import Token, TokenType, tokenize
+from ..ast_nodes import *
+from .tokenizer import Token, TokenType, tokenize
 from pprint import pprint
 
 class ParserError(Exception):
@@ -50,7 +50,7 @@ class Parser:
         return Program(declarations=decls)
 
     def parse_array_literal(self):
-        """Parse nested { ... } array literals for multi-dimensional arrays."""
+        """Parse nested { ... } array literals for multidimensional arrays."""
         self.expect(TokenType.OP, "{")
         values = []
 
@@ -142,8 +142,8 @@ class Parser:
             self.expect(TokenType.OP, "]")
 
         if dims:
-            return Type(base_type=base, dimension=dims)
-        return Type(base_type=base, dimension=[])
+            return Type(base_type=base, dimension=dims[0])
+        return Type(base_type=base, dimension=0)
 
     def parse_lambda_literal(self):
         # Parse [] (...) -> type? { ... }
@@ -312,11 +312,11 @@ class Parser:
 
         elif tok.type == TokenType.STRING:
             self.next()
-            return PrimitiveLiteral(tok.value[1:-1])
+            return PrimitiveLiteral(ord(tok.value[1:-1]))
 
         elif tok.type == TokenType.CHAR:
             self.next()
-            return PrimitiveLiteral(tok.value[1:-1])
+            return PrimitiveLiteral(ord(tok.value[1:-1]))
 
         elif tok.type == TokenType.KW and tok.value in {"true", "false"}:
             self.next()

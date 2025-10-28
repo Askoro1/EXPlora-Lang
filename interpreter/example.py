@@ -1,5 +1,5 @@
-from ast_nodes import *
-from interpreter import Interpreter
+from ..ast_nodes import *
+from .interpreter import Interpreter
 
 # code:
 # unit main(): {

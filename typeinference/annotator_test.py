@@ -1,6 +1,6 @@
 import unittest
-import ast_nodes
-import type_annotator
+from .. import ast_nodes
+from . import type_annotator
 
 small_ast = ast_nodes.Program(declarations=[
     ast_nodes.VarDecl(
