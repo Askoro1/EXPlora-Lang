@@ -12,7 +12,8 @@ def make_type(name: str, dim: int = 0):
         return Type(PrimitiveType(name), dim)
     if name == "array":
         return Type(RecordType("array"), dim)
-    raise ValueError(name)
+    else:
+        return Type(RecordType(name), dim)
 
 
 class TestBuiltins(unittest.TestCase):
@@ -135,6 +136,227 @@ class TestInterpreter(unittest.TestCase):
         with self.assertRaises(RuntimeTypeError):
             Interpreter(prog)
 
+    def test_record_literal_creation(self):
+        # record Point { x:int, y:int }
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[
+                VarDecl("x", make_type("int"), mutable=False),
+                VarDecl("y", make_type("int"), mutable=False),
+            ]
+        )
+
+        # var p:Point = Point { x:1, y:2 }
+        rlit = RecordLiteral(
+            type="Point",
+            field_values={
+                "x": PrimitiveLiteral(1),
+                "y": PrimitiveLiteral(2),
+            }
+        )
+
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
+
+        prog = Program(declarations=[rt, decl])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        p_val = gf.lookup("p").value
+        self.assertEqual(p_val, {"__record_name__": "Point", "x": 1, "y": 2})
+
+    def test_record_constructor_call(self):
+        # record Point { x:int, y:int }
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[
+                VarDecl("x", make_type("int"), False),
+                VarDecl("y", make_type("int"), False),
+            ]
+        )
+        # var p:Point = Point(3, 4)
+        ctor_call = FunctionCall(function=VarRef("Point"), arguments=[PrimitiveLiteral(3), PrimitiveLiteral(4)])
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=ctor_call)
+
+        prog = Program(declarations=[rt, decl])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        p_val = gf.lookup("p").value
+        self.assertEqual(p_val, {"__record_name__": "Point", "x": 3, "y": 4})
+
+    def test_field_access_and_assignment(self):
+        # record Point { x:int, y:int }
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[
+                VarDecl("x", make_type("int"), True),
+                VarDecl("y", make_type("int"), True),
+            ]
+        )
+
+        # var p:Point = Point(10, 20)
+        ctor_call = FunctionCall(function=VarRef("Point"), arguments=[PrimitiveLiteral(10), PrimitiveLiteral(20)])
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=ctor_call)
+
+        prog = Program(declarations=[rt, decl])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        # Access field p.x
+        fr = FieldRef(VarRef("p"), "x")
+        val = interp.eval_expression(fr, gf)
+        self.assertEqual(val.value, 10)
+
+        # Assignment p.x = 42
+        assign = Assignment(FieldRef(VarRef("p"), "x"), PrimitiveLiteral(42))
+        interp.exec_statement(assign, gf)
+        self.assertEqual(gf.lookup("p").value["x"], 42)
+
+    def test_type_mismatch_in_field(self):
+        # record Point { x:int, y:int }
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[
+                VarDecl("x", make_type("int"), False),
+                VarDecl("y", make_type("int"), False),
+            ]
+        )
+
+        # Wrong: x is float instead of int
+        rlit = RecordLiteral(
+            type="Point",
+            field_values={"x": PrimitiveLiteral(3.14), "y": PrimitiveLiteral(2)}
+        )
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
+
+        prog = Program(declarations=[rt, decl])
+        with self.assertRaises(RuntimeTypeError):
+            Interpreter(prog)
+
+    def test_missing_field_raises(self):
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[VarDecl("x", make_type("int"), False), VarDecl("y", make_type("int"), False)]
+        )
+        rlit = RecordLiteral(type="Point", field_values={"x": PrimitiveLiteral(1)})
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
+
+        prog = Program(declarations=[rt, decl])
+        with self.assertRaises(RuntimeTypeError):
+            Interpreter(prog)
+
+    def test_extra_field_raises(self):
+        rt = RecordTypeDecl(
+            name="Point",
+            fields=[VarDecl("x", make_type("int"), False)]
+        )
+        rlit = RecordLiteral(type="Point", field_values={"x": PrimitiveLiteral(1), "y": PrimitiveLiteral(2)})
+        decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
+        prog = Program(declarations=[rt, decl])
+        with self.assertRaises(RuntimeTypeError):
+            Interpreter(prog)
+
+    def test_separate_record_constructors(self):
+        # record Point { x, y }
+        point_decl = RecordTypeDecl(
+            name="Point",
+            fields=[
+                VarDecl("x", make_type("int"), False),
+                VarDecl("y", make_type("int"), False),
+            ]
+        )
+
+        # record Circle { center:Point, radius:int }
+        circle_decl = RecordTypeDecl(
+            name="Circle",
+            fields=[
+                VarDecl("center", make_type("Point"), False),
+                VarDecl("radius", make_type("int"), False),
+            ]
+        )
+
+        # var p:Point = Point(1, 2)
+        point_ctor_call = FunctionCall(VarRef("Point"), [PrimitiveLiteral(1), PrimitiveLiteral(2)])
+        point_var = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=point_ctor_call)
+
+        # var c:Circle = Circle(p, 5)
+        circle_ctor_call = FunctionCall(VarRef("Circle"), [VarRef("p"), PrimitiveLiteral(5)])
+        circle_var = VarDecl(name="c", type=make_type("Circle"), mutable=True, initializer=circle_ctor_call)
+
+        prog = Program(declarations=[point_decl, circle_decl, point_var, circle_var])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        p_val = gf.lookup("p").value
+        c_val = gf.lookup("c").value
+
+        # Check that both records were created properly
+        self.assertEqual(p_val, {"__record_name__": "Point", "x": 1, "y": 2})
+        self.assertIsInstance(c_val["center"], dict)
+        self.assertEqual(c_val["center"]["x"], 1)
+        self.assertEqual(c_val["radius"], 5)
+
+    def test_type_mismatch_between_records(self):
+        # record A { val:int }
+        a_decl = RecordTypeDecl(
+            name="A",
+            fields=[VarDecl("val", make_type("int"), False)]
+        )
+
+        # record B { val:int }
+        b_decl = RecordTypeDecl(
+            name="B",
+            fields=[VarDecl("val", make_type("int"), False)]
+        )
+
+        # var a:A = A(42)
+        a_var = VarDecl(name="a", type=make_type("A"), mutable=True, initializer=FunctionCall(VarRef("A"), [PrimitiveLiteral(42)]))
+
+        # var b:B = a  <-- invalid: assigning A to B
+        assign_b = VarDecl(name="b", type=make_type("B"), mutable=True, initializer=VarRef("a"))
+
+        prog = Program(declarations=[a_decl, b_decl, a_var, assign_b])
+
+        with self.assertRaises(RuntimeTypeError):
+            Interpreter(prog)
+
+    def test_nested_record_field_access_and_assignment(self):
+        # record Inner { a:int, b:int }
+        inner_decl = RecordTypeDecl(
+            name="Inner",
+            fields=[
+                VarDecl("a", make_type("int"), True),
+                VarDecl("b", make_type("int"), True),
+            ]
+        )
+
+        # record Outer { inner:Inner, name:int }
+        outer_decl = RecordTypeDecl(
+            name="Outer",
+            fields=[
+                VarDecl("inner", make_type("Inner"), True),
+                VarDecl("name", make_type("int"), True),
+            ]
+        )
+
+        inner_ctor = FunctionCall(VarRef("Inner"), [PrimitiveLiteral(5), PrimitiveLiteral(6)])
+        outer_ctor = FunctionCall(VarRef("Outer"), [inner_ctor, PrimitiveLiteral(7)])
+
+        outer_var = VarDecl(name="o", type=make_type("Outer"), mutable=True, initializer=outer_ctor)
+
+        prog = Program(declarations=[inner_decl, outer_decl, outer_var])
+        interp = Interpreter(prog)
+        gf = interp.run()
+
+        # Access nested field o.inner.a
+        field_ref = FieldRef(FieldRef(VarRef("o"), "inner"), "a")
+        val = interp.eval_expression(field_ref, gf)
+        self.assertEqual(val.value, 5)
+
+        # Assign to nested field o.inner.b = 99
+        assign = Assignment(FieldRef(FieldRef(VarRef("o"), "inner"), "b"), PrimitiveLiteral(99))
+        interp.exec_statement(assign, gf)
+        self.assertEqual(gf.lookup("o").value["inner"]["b"], 99)
 
 if __name__ == "main":
     unittest.main()
