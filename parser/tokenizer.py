@@ -112,6 +112,8 @@ if __name__ == "__main__":
         
         Point p = Point { x: 1, y: 2 };
         
+        int arr[2][2] = {{1, 2}, {3, 4}};
+        
         if (x < y) {
             x = x + 1;
         } else {

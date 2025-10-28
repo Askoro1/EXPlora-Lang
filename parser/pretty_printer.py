@@ -12,9 +12,7 @@ class PrettyPrinter:
         self.indent_level += 1
 
     def dedent(self):
-        self.indent_level -= 1
-        if self.indent_level < 0:
-            self.indent_level = 0
+        self.indent_level = max(0, self.indent_level - 1)
 
     def write_indent(self) -> str:
         return self.indent_str * self.indent_level
@@ -100,8 +98,20 @@ class PrettyPrinter:
                 return str(node.value)
 
         elif isinstance(node, ArrayLiteral):
-            elems = ", ".join(self.pprint(v) for v in node.value)
-            return "{" + elems + "}"
+            # Pretty-print nested arrays with indentation
+            if all(isinstance(v, ArrayLiteral) for v in node.value):
+                s = "{\n"
+                self.indent()
+                lines = []
+                for v in node.value:
+                    lines.append(self.write_indent() + self.pprint(v))
+                s += ",\n".join(lines) + "\n"
+                self.dedent()
+                s += self.write_indent() + "}"
+                return s
+            else:
+                elems = ", ".join(self.pprint(v) for v in node.value)
+                return "{" + elems + "}"
 
         elif isinstance(node, RecordLiteral):
             fields = ", ".join(f"{k}: {self.pprint(v)}" for k, v in node.field_values.items())
@@ -112,10 +122,8 @@ class PrettyPrinter:
             body = self.pprint(node.body)
             return f"[ ]({params}) {body}"
 
-
         elif isinstance(node, Type):
             s = self.pprint(node.base_type)
-
             if isinstance(node.dimension, int) and node.dimension > 0:
                 s += "[]" * node.dimension
             elif isinstance(node.dimension, list):
@@ -130,6 +138,7 @@ class PrettyPrinter:
             raise ValueError(f"Unknown AST node type: {type(node).__name__}")
 
 
+
 if __name__ == '__main__':
     code = """
     int add(int a, int b) {
@@ -140,9 +149,25 @@ if __name__ == '__main__':
         int x = 10;
         float y = 3.14;
         bool flag = true;
-        int arr[5] = {1, 2, 3, 4, 5};
+        int arr[2][2] = {{1, 2}, {3, 4}};
         auto f = [](int x, int y) { return x + y; };
         Point p = Point { x: 1, y: 2 };
+        
+        int arr[2][2] = {
+            {1, 2},
+            {3, 4}
+        };
+        
+        float cube[2][2][2] = {
+            {
+                {1.0, 2.0},
+                {3.0, 4.0}
+            },
+            {
+                {5.0, 6.0},
+                {7.0, 8.0}
+            }
+        };
 
         if (x < y) {
             x = x + 1;

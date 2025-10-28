@@ -50,13 +50,18 @@ class Parser:
         return Program(declarations=decls)
 
     def parse_array_literal(self):
-        """Parse {1, 2, 3} style array literals."""
+        """Parse nested { ... } array literals for multi-dimensional arrays."""
         self.expect(TokenType.OP, "{")
         values = []
 
         if not self.accept(TokenType.OP, "}"):
             while True:
-                values.append(self.parse_expression())
+                if self.peek().type == TokenType.OP and self.peek().value == "{":
+                    # Nested array literal
+                    values.append(self.parse_array_literal())
+                else:
+                    # Regular element (number, variable, etc.)
+                    values.append(self.parse_expression())
                 if self.accept(TokenType.OP, "}"):
                     break
                 self.expect(TokenType.OP, ",")
@@ -64,12 +69,12 @@ class Parser:
         return ArrayLiteral(value=values)
 
     def parse_declaration(self):
-        # Parse base type
+        # --- parse base type ---
         ttype = self.parse_type()
         name_token = self.expect(TokenType.ID)
         name = name_token.value
 
-        # --- parse array dimensions ---
+        # --- parse array dimensions after variable name ---
         array_dims = []
         while self.accept(TokenType.OP, "["):
             if self.peek().type == TokenType.NUMBER:
@@ -79,8 +84,13 @@ class Parser:
                 array_dims.append(None)
             self.expect(TokenType.OP, "]")
 
+        # attach dimensions if any
         if array_dims:
-            ttype = Type(base_type=ttype, dimension=array_dims)
+            # If type already has dimensions (e.g. int[3] arr[4][5]), combine them
+            if isinstance(ttype.dimension, list):
+                ttype.dimension.extend(array_dims)
+            else:
+                ttype.dimension = array_dims
 
         # --- function declaration ---
         if self.accept(TokenType.OP, "("):
@@ -96,15 +106,14 @@ class Parser:
             body = self.parse_block()
             return FunctionDef(return_type=ttype, name=name, params=params, body=body)
 
-        # variable declaration
+        # --- variable initializer ---
         init = None
         if self.accept(TokenType.OP, "="):
-            # Check if it's a record literal: ID followed by {
+            # Check for record literal: Type { ... }
             if self.peek().type == TokenType.ID and self.pos + 1 < len(self.tokens) and \
                     self.tokens[self.pos + 1].type == TokenType.OP and self.tokens[self.pos + 1].value == "{":
-                typename = self.next().value  # consume the ID
+                typename = self.next().value
                 init = self.parse_record_literal(typename)
-            # Check if it's an array literal
             elif self.peek().type == TokenType.OP and self.peek().value == "{":
                 init = self.parse_array_literal()
             else:
@@ -131,14 +140,19 @@ class Parser:
         else:
             raise ParserError(f"Unknown type {t.value} at pos {t.pos}")
 
-        dim = 0
+        # --- multi-dimensional array support ---
+        dims = []
         while self.accept(TokenType.OP, "["):
             if self.peek().type == TokenType.NUMBER:
-                self.next()  # skip number (you could store this size too)
+                size = int(self.next().value)
+                dims.append(size)
+            else:
+                dims.append(None)  # e.g. int arr[][5];
             self.expect(TokenType.OP, "]")
-            dim += 1
 
-        return Type(base_type=base, dimension=dim)
+        if dims:
+            return Type(base_type=base, dimension=dims)
+        return Type(base_type=base, dimension=[])
 
     def parse_lambda_literal(self):
         # Parse [] (...) -> type { ... }
@@ -342,6 +356,23 @@ if __name__ == "__main__":
         bool flag = true;
         int arr[5] = {1, 2, 3, 4, 5};
         
+        int matrix[3][3] = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        
+        float cube[2][2][2] = {
+            {
+                {1.0, 2.0},
+                {3.0, 4.0}
+            },
+            {
+                {5.0, 6.0},
+                {7.0, 8.0}
+            }
+        };
+                
         auto f = [](int x, int y) {
             return x + y;
         };
