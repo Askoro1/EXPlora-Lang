@@ -149,16 +149,16 @@ if __name__ == '__main__':
         int x = 10;
         float y = 3.14;
         bool flag = true;
-        int arr[2][2] = {{1, 2}, {3, 4}};
+        int[2][2] arr = {{1, 2}, {3, 4}};
         auto f = [](int x, int y) { return x + y; };
         Point p = Point { x: 1, y: 2 };
         
-        int arr[2][2] = {
+        int[2][2] arr = {
             {1, 2},
             {3, 4}
         };
         
-        float cube[2][2][2] = {
+        float[2][2][2] cube = {
             {
                 {1.0, 2.0},
                 {3.0, 4.0}

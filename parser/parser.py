@@ -69,28 +69,12 @@ class Parser:
         return ArrayLiteral(value=values)
 
     def parse_declaration(self):
-        # --- parse base type ---
+        # --- parse base type including array dims (e.g. int[2][2]) ---
         ttype = self.parse_type()
+
+        # --- now variable name ---
         name_token = self.expect(TokenType.ID)
         name = name_token.value
-
-        # --- parse array dimensions after variable name ---
-        array_dims = []
-        while self.accept(TokenType.OP, "["):
-            if self.peek().type == TokenType.NUMBER:
-                size_token = self.next()
-                array_dims.append(int(size_token.value))
-            else:
-                array_dims.append(None)
-            self.expect(TokenType.OP, "]")
-
-        # attach dimensions if any
-        if array_dims:
-            # If type already has dimensions (e.g. int[3] arr[4][5]), combine them
-            if isinstance(ttype.dimension, list):
-                ttype.dimension.extend(array_dims)
-            else:
-                ttype.dimension = array_dims
 
         # --- function declaration ---
         if self.accept(TokenType.OP, "("):
@@ -109,11 +93,18 @@ class Parser:
         # --- variable initializer ---
         init = None
         if self.accept(TokenType.OP, "="):
-            # Check for record literal: Type { ... }
-            if self.peek().type == TokenType.ID and self.pos + 1 < len(self.tokens) and \
+            # If initializer starts with [] (lambda), parse it directly
+            if (self.peek().type == TokenType.OP and self.peek().value == "[" and
+                    self.pos + 1 < len(self.tokens) and
+                    self.tokens[self.pos + 1].type == TokenType.OP and
+                    self.tokens[self.pos + 1].value == "]"):
+                init = self.parse_lambda_literal()
+            # Record literal: Type { ... }  (e.g. = Point { ... })
+            elif self.peek().type == TokenType.ID and self.pos + 1 < len(self.tokens) and \
                     self.tokens[self.pos + 1].type == TokenType.OP and self.tokens[self.pos + 1].value == "{":
                 typename = self.next().value
                 init = self.parse_record_literal(typename)
+            # Array literal: = { ... }
             elif self.peek().type == TokenType.OP and self.peek().value == "{":
                 init = self.parse_array_literal()
             else:
@@ -155,7 +146,7 @@ class Parser:
         return Type(base_type=base, dimension=[])
 
     def parse_lambda_literal(self):
-        # Parse [] (...) -> type { ... }
+        # Parse [] (...) -> type? { ... }
         self.expect(TokenType.OP, "[")
         self.expect(TokenType.OP, "]")
 
@@ -212,8 +203,16 @@ class Parser:
         # Handle declarations: primitive or user-defined types
         if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
                 or (t.type == TokenType.ID):
-            # Peek ahead: if next token is ID, this is a declaration
-            if self.tokens[self.pos + 1].type == TokenType.ID:
+            # Look ahead to find the next meaningful token after possible array brackets
+            i = self.pos + 1
+            while i < len(self.tokens) and self.tokens[i].type == TokenType.OP and self.tokens[i].value == "[":
+                # Skip until closing bracket
+                i += 1
+                while i < len(self.tokens) and not (
+                        self.tokens[i].type == TokenType.OP and self.tokens[i].value == "]"):
+                    i += 1
+                i += 1  # skip closing bracket
+            if i < len(self.tokens) and self.tokens[i].type == TokenType.ID:
                 return self.parse_declaration()
 
         # Handle control flow
@@ -273,6 +272,14 @@ class Parser:
     RIGHT_ASSOC = {"="}
 
     def parse_expression(self, min_prec=0):
+        # --- Detect lambda literal early ---
+        if (self.peek().type == TokenType.OP and self.peek().value == "[" and
+                self.pos + 1 < len(self.tokens) and
+                self.tokens[self.pos + 1].type == TokenType.OP and
+                self.tokens[self.pos + 1].value == "]"):
+            return self.parse_lambda_literal()
+
+        # --- Otherwise, normal expression parsing ---
         node = self.parse_primary()
 
         while True:
@@ -294,28 +301,34 @@ class Parser:
 
     def parse_primary(self):
         tok = self.peek()
+
         if tok.type == TokenType.KW and tok.value == "auto":
             raise ParserError(f"Unexpected 'auto' at pos {tok.pos} — it should only appear at start of a declaration")
+
         elif tok.type == TokenType.NUMBER:
             self.next()
             val = float(tok.value) if ('.' in tok.value or 'e' in tok.value or 'E' in tok.value) else int(tok.value)
             return PrimitiveLiteral(val)
+
         elif tok.type == TokenType.STRING:
             self.next()
             return PrimitiveLiteral(tok.value[1:-1])
+
         elif tok.type == TokenType.CHAR:
             self.next()
             return PrimitiveLiteral(tok.value[1:-1])
+
         elif tok.type == TokenType.KW and tok.value in {"true", "false"}:
             self.next()
             return PrimitiveLiteral(tok.value == "true")
+
         elif tok.type == TokenType.ID:
             self.next()
             node: Expression = VarRef(tok.value)
             # Record literal: Type { ... }
             if self.peek().type == TokenType.OP and self.peek().value == "{":
-                record = self.parse_record_literal(tok.value)
-                return record
+                return self.parse_record_literal(tok.value)
+            # Function calls and indexing
             while True:
                 if self.accept(TokenType.OP, "("):
                     args = []
@@ -334,13 +347,24 @@ class Parser:
                     continue
                 break
             return node
+
+        # ✅ Handle lambdas early and clearly
         elif tok.type == TokenType.OP and tok.value == "[":
-            return self.parse_lambda_literal()
+            # Make sure it’s a lambda like [](...)
+            # (don’t eat tokens blindly if it’s array indexing)
+            next_tok = self.tokens[self.pos + 1] if self.pos + 1 < len(self.tokens) else None
+            if next_tok and next_tok.type == TokenType.OP and next_tok.value == "]":
+                return self.parse_lambda_literal()
+            else:
+                # Probably an array index, not a lambda
+                raise ParserError(f"Unexpected '[' at pos {tok.pos}")
+
         elif tok.type == TokenType.OP and tok.value == "(":
             self.next()
             expr = self.parse_expression()
             self.expect(TokenType.OP, ")")
             return expr
+
         raise ParserError(f"Unexpected token {tok.type.name}({tok.value}) at pos {tok.pos}")
 
 
@@ -354,15 +378,15 @@ if __name__ == "__main__":
         int x = 10;
         float y = 6.2e-7;
         bool flag = true;
-        int arr[5] = {1, 2, 3, 4, 5};
+        int[5] arr = {1, 2, 3, 4, 5};
         
-        int matrix[3][3] = {
+        int[3][3] matrix = {
             {1, 2, 3},
             {4, 5, 6},
             {7, 8, 9}
         };
         
-        float cube[2][2][2] = {
+        float[2][2][2] cube = {
             {
                 {1.0, 2.0},
                 {3.0, 4.0}
