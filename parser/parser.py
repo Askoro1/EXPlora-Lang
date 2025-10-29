@@ -49,9 +49,10 @@ class Parser:
         while self.peek().type != TokenType.EOF:
             tok = self.peek()
             if tok.type == TokenType.KW and tok.value == "Record":
-                decls.append(self.parse_record_type_decl())
+                decl = self.parse_record_type_decl()
             else:
-                decls.append(self.parse_declaration())
+                decl = self.parse_declaration()
+            decls.append(DeclStmt(declaration=decl))
         return Program(declarations=decls)
 
     def parse_array_literal(self):
@@ -223,7 +224,8 @@ class Parser:
                     i += 1
                 i += 1  # skip closing bracket
             if i < len(self.tokens) and self.tokens[i].type == TokenType.ID:
-                return self.parse_declaration()
+                decl = self.parse_declaration()
+                return DeclStmt(declaration=decl)
 
         # Handle control flow
         if t.type == TokenType.KW:
