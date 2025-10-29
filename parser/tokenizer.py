@@ -54,7 +54,8 @@ MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TO
 KEYWORDS = {
     "int", "float", "char", "bool", "unit", "auto",
     "if", "else", "while", "for", "return",
-    "true", "false", "sizeof"
+    "true", "false", "sizeof",
+    "Record"
 }
 
 # ------------------------
@@ -105,6 +106,9 @@ if __name__ == "__main__":
     int main() {
         int x = 42;
         float y = 3.14;
+        
+        Record Point { x, y } 
+        Point p = Point(1, 2);
         
         auto f = [](int x, int y) -> int {
             return x + y;

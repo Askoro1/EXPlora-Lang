@@ -14,6 +14,7 @@ class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.pos = 0
+        self.record_defs = {}
 
     # ------------------------
     # Token utilities
@@ -46,7 +47,11 @@ class Parser:
     def parse(self) -> Program:
         decls = []
         while self.peek().type != TokenType.EOF:
-            decls.append(self.parse_declaration())
+            tok = self.peek()
+            if tok.type == TokenType.KW and tok.value == "Record":
+                decls.append(self.parse_record_type_decl())
+            else:
+                decls.append(self.parse_declaration())
         return Program(declarations=decls)
 
     def parse_array_literal(self):
@@ -200,6 +205,11 @@ class Parser:
     def parse_statement(self):
         t = self.peek()
 
+        # ✅ Handle record type declarations inside functions too
+        if t.type == TokenType.KW and t.value == "Record":
+            decl = self.parse_record_type_decl()
+            return DeclStmt(declaration=decl)
+
         # Handle declarations: primitive or user-defined types
         if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
                 or (t.type == TokenType.ID):
@@ -338,12 +348,19 @@ class Parser:
                             if self.accept(TokenType.OP, ")"):
                                 break
                             self.expect(TokenType.OP, ",")
-                    node = FunctionCall(function=node, arguments=args)
-                    continue
-                if self.accept(TokenType.OP, "["):
-                    index = self.parse_expression()
-                    self.expect(TokenType.OP, "]")
-                    node = OperatorCall(operator="[]", operands=[node, index])
+
+                    # ✅ Record constructor call handling
+                    if isinstance(node, VarRef) and node.name in self.record_defs:
+                        field_names = self.record_defs[node.name]
+                        if len(args) != len(field_names):
+                            raise ParserError(
+                                f"Record '{node.name}' expects {len(field_names)} fields, "
+                                f"got {len(args)} at pos {tok.pos}"
+                            )
+                        field_values = {field: arg for field, arg in zip(field_names, args)}
+                        node = RecordLiteral(type=node.name, field_values=field_values)
+                    else:
+                        node = FunctionCall(function=node, arguments=args)
                     continue
                 break
             return node
@@ -366,6 +383,39 @@ class Parser:
             return expr
 
         raise ParserError(f"Unexpected token {tok.type.name}({tok.value}) at pos {tok.pos}")
+
+    def parse_record_type_decl(self):
+        self.expect(TokenType.KW, "Record")
+        name_token = self.expect(TokenType.ID)
+        name = name_token.value
+
+        self.expect(TokenType.OP, "{")
+        fields = []
+
+        if not self.accept(TokenType.OP, "}"):
+            while True:
+                field_name = self.expect(TokenType.ID).value
+                if self.peek().type == TokenType.KW or self.peek().type == TokenType.ID:
+                    field_type = self.parse_type()
+                    field_name = self.expect(TokenType.ID).value
+                    fields.append(VarDecl(name=field_name, type=field_type, mutable=False))
+                else:
+                    fields.append(VarDecl(
+                        name=field_name,
+                        type=Type(PrimitiveType("auto"), 0),
+                        mutable=False
+                    ))
+
+                if self.accept(TokenType.OP, "}"):
+                    break
+                self.expect(TokenType.OP, ",")
+
+        self.accept(TokenType.OP, ";")  # optional semicolon
+
+        # ✅ store in registry
+        self.record_defs[name] = [f.name for f in fields]
+
+        return RecordTypeDecl(name=name, fields=fields)
 
 
 if __name__ == "__main__":
@@ -402,6 +452,9 @@ if __name__ == "__main__":
         };
         
         Point p = Point { x: 1, y: 2 };
+        
+        Record Point { x, y } 
+        Point p = Point(1, 2);
 
         if (x < 20) {
             x = x + 1;

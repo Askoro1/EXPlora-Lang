@@ -36,6 +36,12 @@ class PrettyPrinter:
             s += ";"
             return s
 
+
+        elif isinstance(node, RecordTypeDecl):
+            # Print as "Record Point { x, y }"
+            field_names = ", ".join(f.name for f in node.fields)
+            return f"Record {node.name} {{ {field_names} }}"
+
         elif isinstance(node, PrimitiveType):
             return node.name
 
@@ -61,6 +67,9 @@ class PrettyPrinter:
 
         elif isinstance(node, ExprStmt):
             return self.pprint(node.expression) + ";"
+
+        elif isinstance(node, DeclStmt):
+            return self.pprint(node.declaration)
 
         elif isinstance(node, Assignment):
             return f"{self.pprint(node.lvalue)} = {self.pprint(node.rvalue)}"
@@ -152,6 +161,9 @@ if __name__ == '__main__':
         int[2][2] arr = {{1, 2}, {3, 4}};
         auto f = [](int x, int y) { return x + y; };
         Point p = Point { x: 1, y: 2 };
+        
+        Record Point { x, y }
+        Point p = Point(1, 2);
         
         int[2][2] arr = {
             {1, 2},
