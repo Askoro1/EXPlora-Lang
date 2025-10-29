@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
-from ast_nodes import *
+from ..ast_nodes import *
 
 
 # if numpy is available we use numpy under the hood for effective array ops
@@ -56,3 +56,22 @@ def build(dims, init_val=0, init_type=float):
     if len(dims) == 0:
         return init_type(init_val)
     return [build(dims[1:]) for _ in range(dims[0])]
+
+
+def broadcast_shapes(*shapes: Optional[Tuple[int, ...]]) -> Tuple[int, ...]:
+    if not shapes:
+        return ()
+
+    max_ndim = max(len(s) for s in shapes)
+    padded = [(1,) * (max_ndim - len(s)) + s for s in shapes]
+
+    result = []
+    for dims in zip(*padded):
+        dim_set = set(dims)
+        if len(dim_set - {1}) > 1:
+            raise RuntimeTypeError(f"Incompatible shapes: {shapes}")
+        elif len(dim_set - {1}) == 0:
+            result.append(1)
+        else:
+            result.append(max(dim_set))
+    return tuple(result)

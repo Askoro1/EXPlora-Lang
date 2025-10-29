@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Tuple
-from ast_nodes import *
-from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array)
-from builtins_ import BUILTINS
+from ..ast_nodes import *
+from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
+from .builtins_ import BUILTINS
 
 
 class Frame:
@@ -31,6 +31,8 @@ class Interpreter:
             self.global_frame.define(name, rv)
         # table of user-defined functions: name -> FunctionDef node
         self.functions: Dict[str, FunctionDef] = {}
+        # Registry for record types: name -> { field_name: VarDecl }
+        self.type_registry: Dict[str, Dict[str, VarDecl]] = {}
         # init: read declarations and register them
         self._register_declarations(program.declarations)
 
@@ -38,6 +40,7 @@ class Interpreter:
         for d in decls:
             if isinstance(d, FunctionDef):
                 self.functions[d.name] = d
+
             elif isinstance(d, VarDecl):
                 if d.initializer is None:
                     rv = RuntimeValue(None, static_type=d.type)
@@ -46,8 +49,51 @@ class Interpreter:
                     # type check
                     self._check_type_match(d.type, rv)
                 self.global_frame.define(d.name, rv)
+
             elif isinstance(d, RecordTypeDecl):
-                continue
+                # store layout: { field_name: VarDecl }
+                layout = {v.name: v for v in d.fields}
+                self.type_registry[d.name] = layout
+
+                field_list = list(d.fields)
+                record_name = d.name
+
+                def make_record_constructor(args_rv_list, _layout=layout, _field_list=field_list, _record_name=record_name):
+                    # allow either positional args in declared order or a single dict-like arg
+                    if len(args_rv_list) == 1 and isinstance(args_rv_list[0].value, dict):
+                        vals = args_rv_list[0].value
+                    else:
+                        # map positional args to fields by order as in _field_list
+                        if len(args_rv_list) != len(_field_list):
+                            raise RuntimeTypeError(f"{d.name} constructor expects {len(_field_list)} args")
+                        vals = {f.name: arg.value for f, arg in zip(_field_list, args_rv_list)}
+
+                    # validate and return python dict
+                    rec = {}
+                    for fname, vdecl in _layout.items():
+                        if fname not in vals:
+                            raise RuntimeTypeError(f"Missing field {fname} for {_record_name}")
+                        # type-check
+                        rv = RuntimeValue(vals[fname], static_type=vdecl.type)
+                        self._check_type_match(vdecl.type, rv)
+                        rec[fname] = vals[fname]
+
+                    # Tag with record name
+                    rec["__record_name__"] = _record_name
+
+                    return RuntimeValue(rec, static_type=Type(base_type=RecordType(d.name), dimension=0))
+
+                # register constructor as builtin-like callable
+                rv_ctor = RuntimeValue(None,
+                                       static_type=Type(base_type=FunctionType(param_types=[v.type for v in d.fields],
+                                                                               return_type=Type(
+                                                                                   base_type=RecordType(d.name),
+                                                                                   dimension=0)),
+                                                        dimension=0),
+                                       is_function=True,
+                                       func_meta={'builtin': True, 'pyfunc': make_record_constructor})
+                self.global_frame.define(d.name, rv_ctor)
+
             else:
                 raise RuntimeTypeError(f"Unsupported top-level declaration: {d}")
 
@@ -72,6 +118,9 @@ class Interpreter:
             inferred = RecordType("array")
         elif isinstance(v, list):
             inferred = RecordType("array")
+        elif isinstance(v, dict):
+            rec_name = v.get("__record_name__")
+            inferred = RecordType(rec_name if rec_name else "record")
         elif actual.is_function:
             # build function type from func_meta if present
             fm = actual.func_meta
@@ -86,15 +135,36 @@ class Interpreter:
         else:
             raise RuntimeTypeError(f"Unsupported type: {type(v)}")
 
-        # expected.base_type may be PrimitiveType / RecordType / FunctionType
+        # expected.base_type may be PrimitiveType | RecordType | FunctionType
         if isinstance(expected.base_type, PrimitiveType) or isinstance(expected.base_type, RecordType):
+            if isinstance(expected.base_type, RecordType) and isinstance(v, dict):
+                rec_name = v.get("__record_name__")
+                if rec_name is None:
+                    raise RuntimeTypeError(f"Expected record '{expected.base_type.name}', got plain record")
+
+                # Strict record name match
+                if rec_name != expected.base_type.name:
+                    raise RuntimeTypeError(f"Type mismatch: expected record '{expected.base_type.name}', got '{rec_name}'")
+
+                # Ensure record name exists in registry
+                if expected.base_type.name in self.type_registry:
+                    # ensure all required fields exist
+                    layout = self.type_registry[expected.base_type.name]
+                    for fname, vdecl in layout.items():
+                        if fname not in v:
+                            raise RuntimeTypeError(f"Missing field '{fname}' in record '{expected.base_type.name}'")
+                        # Validate field type recursively
+                        field_val = RuntimeValue(v[fname])
+                        self._check_type_match(vdecl.type, field_val)
+                    return
+                else:
+                    raise RuntimeTypeError(f"Unsupported RecordType: '{expected.base_type.name}'")
             if inferred.name == expected.base_type.name:
                 return
-            raise RuntimeTypeError(f"Type mismatch: expected primitive {expected.base_type.name}, got {inferred}.")
+            raise RuntimeTypeError(f"Type mismatch: expected {expected.base_type.name}, got {inferred.name}.")
         if isinstance(expected.base_type, FunctionType):
             if not actual.is_function:
                 raise RuntimeTypeError("Type mismatch: expected function, got non-function")
-            # further checks could be done using func_meta
             return
 
     def _type_eq(self, a: Type, b: Type) -> bool:
@@ -124,7 +194,7 @@ class Interpreter:
             if NUMPY_ENABLED:
                 items = _np.array(items)
             shape = shape_of_array(items)
-            if isinstance(shape, list):
+            if isinstance(shape, tuple):
                 dim = shape[0]
             else:
                 dim = 0
@@ -141,18 +211,41 @@ class Interpreter:
             rec_val = rec_rv.value
             if not isinstance(rec_val, dict):
                 raise RuntimeTypeError("Field access on non-record")
+            #check static_type if present
+            if rec_rv.static_type and isinstance(rec_rv.static_type.base_type, RecordType):
+                rec_name = rec_rv.static_type.base_type.name
+                if rec_name in self.type_registry:
+                    if node.field_name not in self.type_registry[rec_name]:
+                        raise RuntimeTypeError(f"Field '{node.field_name}' not part of record '{rec_name}'")
             if node.field_name not in rec_val:
                 raise RuntimeTypeError(f"Field '{node.field_name}' not found in record")
             v = rec_val[node.field_name]
             return RuntimeValue(v, static_type=None)
 
         if isinstance(node, RecordLiteral):
-            # create python dict
-            d = {}
+            # node.type is the name of the record (string)
+            rec_name = node.type
+            if rec_name not in self.type_registry:
+                raise RuntimeTypeError(f"Unknown record type '{rec_name}'")
+            layout = self.type_registry[rec_name]
+            # evaluate provided fields
+            rec = {}
             for fname, expr in node.field_values.items():
+                if fname not in layout:
+                    raise RuntimeTypeError(f"Unknown field '{fname}' for record '{rec_name}'")
                 rv = self.eval_expression(expr, frame)
-                d[fname] = rv.value
-            return RuntimeValue(d, static_type=Type(base_type=RecordType(node.type), dimension=0))
+                # check against declared field type
+                self._check_type_match(layout[fname].type, rv)
+                rec[fname] = rv.value
+            # ensure all required fields are present
+            for fname in layout:
+                if fname not in rec:
+                    raise RuntimeTypeError(f"Missing field '{fname}' for record '{rec_name}'")
+
+            # attach record name tag for runtime type checking
+            rec["__record_name__"] = node.type
+
+            return RuntimeValue(rec, static_type=Type(base_type=RecordType(rec_name), dimension=0))
 
         if isinstance(node, LambdaLiteral):
             # capturing current frame
@@ -160,12 +253,11 @@ class Interpreter:
             return_type = None
             if hasattr(node, 'type') and isinstance(node.type, Type):
                 return_type = node.type
-            meta = {
-                'params': params,
-                'return_type': return_type,
-                'node': node
-            }
-            rv = RuntimeValue(value=None, static_type=return_type, is_function=True, func_meta={**meta, 'closure': frame})
+
+            rv = RuntimeValue(value=None, static_type=return_type, is_function=True, func_meta={'params': params,
+                                                                                                'return_type': return_type,
+                                                                                                'node': node,
+                                                                                                'closure': frame})
             return rv
 
         if isinstance(node, FunctionCall):
@@ -184,8 +276,11 @@ class Interpreter:
             # FunctionDef case
             if isinstance(node.function, VarRef) and node.function.name in self.functions:
                 fn_node = self.functions[node.function.name]
-                # prepare new frame with closure (current `frame`)
-                new_frame = Frame(parent=frame)
+
+                arg_rvs = []
+                arg_vals = []
+                shapes = []
+
                 # bind parameters (positional)
                 if len(fn_node.params) != len(node.arguments):
                     raise RuntimeTypeError(f"Function '{fn_node.name}' expected {len(fn_node.params)} args, got {len(node.arguments)}")
@@ -193,13 +288,46 @@ class Interpreter:
                     arg_rv = self.eval_expression(arg_expr, frame)
                     # check type
                     self._check_type_match(param_decl.type, arg_rv)
-                    new_frame.define(param_decl.name, arg_rv)
-                # evaluate body (body is Expression)
-                ret = self.eval_expression(fn_node.body, new_frame)
-                # check return type
-                if fn_node.return_type is not None:
-                    self._check_type_match(fn_node.return_type, ret)
-                return ret
+                    arg_rvs.append(arg_rv)
+                    arg_val = arg_rv.value
+                    arg_vals.append(arg_val)
+                    if isinstance(arg_val, _np.ndarray):
+                        shapes.append(arg_val.shape)
+
+                if shapes:
+                    # vectorized elementwise evaluation
+                    bshape = broadcast_shapes(*shapes)
+                    result = _np.empty(bshape, dtype=object)
+
+                    for idx in _np.ndindex(bshape):
+                        call_args = []
+                        for param_decl, val in zip(fn_node.params, arg_vals):
+                            if isinstance(val, _np.ndarray):
+                                call_args.append(RuntimeValue(val[idx], static_type=param_decl.type))
+                            else:
+                                call_args.append(RuntimeValue(val, static_type=param_decl.type))
+                        # prepare new frame with closure (current `frame`)
+                        new_frame = Frame(parent=frame)
+                        for param_decl, rv in zip(fn_node.params, call_args):
+                            new_frame.define(param_decl.name, rv)
+                        res = self.eval_expression(fn_node.body, new_frame)
+                        result[idx] = res.value
+
+                    return RuntimeValue(result,
+                                        static_type=Type(base_type=RecordType("array"), dimension=result.shape[0]),
+                                        shape=result.shape)
+                else:
+                    # scalar call
+                    # prepare new frame with closure (current `frame`)
+                    new_frame = Frame(parent=frame)
+                    for param_decl, rv in zip(fn_node.params, arg_rvs):
+                        new_frame.define(param_decl.name, rv)
+                    # evaluate body (body is Expression)
+                    ret = self.eval_expression(fn_node.body, new_frame)
+                    # check return type
+                    if fn_node.return_type is not None:
+                        self._check_type_match(fn_node.return_type, ret)
+                    return ret
 
             # Lambda closure case: fn_rv.func_meta has closure and node
             if 'node' in fm and fm['node'] is not None:
@@ -232,7 +360,7 @@ class Interpreter:
                 if node.operator == '-':
                     return RuntimeValue(-a, static_type=None)
                 if node.operator == 'not':
-                    return RuntimeValue(not a, static_type=None)
+                    return RuntimeValue(_np.logical_not(a), static_type=None)
                 if node.operator == 'sizeof':
                     if NUMPY_ENABLED and isinstance(a, _np.ndarray):
                         dim = a.shape[0] if a.ndim > 0 else 0

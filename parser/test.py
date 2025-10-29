@@ -1,6 +1,6 @@
-from tokenizer import tokenize
-from parser import Parser
-from pretty_printer import PrettyPrinter
+from .tokenizer import tokenize
+from .parser import Parser
+from .pretty_printer import PrettyPrinter
 
 if __name__ == "__main__":
     source = r'''

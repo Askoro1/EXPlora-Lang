@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
 
-from ast_nodes import PrimitiveLiteral, ArrayLiteral, OperatorCall, VarRef, Program
-from utils import RuntimeValue, RuntimeTypeError
-from builtins_ import _builtin_size
-from interpreter import Interpreter
+from ..ast_nodes import PrimitiveLiteral, ArrayLiteral, OperatorCall, VarRef, Program
+from .utils import RuntimeValue, RuntimeTypeError
+from .builtins_ import _builtin_size
+from .interpreter import Interpreter
 
 
 class TestInterpreterNewFeatures(unittest.TestCase):

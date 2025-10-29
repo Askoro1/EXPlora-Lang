@@ -1,4 +1,5 @@
-import type_checker, ast_nodes
+from . import type_checker
+from .. import ast_nodes
 
 """
 Entry point function. Goes through all of the program declarations and calls

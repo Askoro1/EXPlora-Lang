@@ -1,6 +1,6 @@
-from nodes import *
-from tokenizer import tokenize
-from parser import Parser
+from ..ast_nodes import *
+from .tokenizer import tokenize
+from .parser import Parser
 
 
 class PrettyPrinter:
@@ -132,6 +132,7 @@ class PrettyPrinter:
             return f"[]({params}) {body}"
 
         elif isinstance(node, Type):
+            # <---- logic
             s = self.pprint(node.base_type)
             if isinstance(node.dimension, int) and node.dimension > 0:
                 s += "[]" * node.dimension
