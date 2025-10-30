@@ -166,9 +166,11 @@ if __name__ == '__main__':
         Record Point { x, y }
         Point p = Point(1, 2);
         
-        int[2][2] arr = {
+        int[4][2] arr = {
             {1, 2},
-            {3, 4}
+            {3, 4},
+            {5, 6},
+            {7, 8}
         };
         
         float[2][2][2] cube = {

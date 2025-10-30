@@ -49,10 +49,9 @@ class Parser:
         while self.peek().type != TokenType.EOF:
             tok = self.peek()
             if tok.type == TokenType.KW and tok.value == "Record":
-                decl = self.parse_record_type_decl()
+                decls.append(self.parse_record_type_decl())
             else:
-                decl = self.parse_declaration()
-            decls.append(DeclStmt(declaration=decl))
+                decls.append(self.parse_declaration())
         return Program(declarations=decls)
 
     def parse_array_literal(self):
@@ -138,17 +137,16 @@ class Parser:
             raise ParserError(f"Unknown type {t.value} at pos {t.pos}")
 
         # --- multi-dimensional array support ---
-        dims = []
+        dimension = []
         while self.accept(TokenType.OP, "["):
+            size = None
             if self.peek().type == TokenType.NUMBER:
                 size = int(self.next().value)
-                dims.append(size)
-            else:
-                dims.append(None)  # e.g. int arr[][5];
             self.expect(TokenType.OP, "]")
+            dimension.append(size)
 
-        if dims:
-            return Type(base_type=base, dimension=dims[0])
+        if dimension:
+            return Type(base_type=base, dimension=dimension)
         return Type(base_type=base, dimension=0)
 
     def parse_lambda_literal(self):
@@ -206,28 +204,28 @@ class Parser:
     def parse_statement(self):
         t = self.peek()
 
-        # ✅ Handle record type declarations inside functions too
+        # Handle record declarations inside functions
         if t.type == TokenType.KW and t.value == "Record":
             decl = self.parse_record_type_decl()
             return DeclStmt(declaration=decl)
 
-        # Handle declarations: primitive or user-defined types
+        # Handle variable declarations
         if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
                 or (t.type == TokenType.ID):
-            # Look ahead to find the next meaningful token after possible array brackets
+            # Look ahead to see if this is a declaration
             i = self.pos + 1
             while i < len(self.tokens) and self.tokens[i].type == TokenType.OP and self.tokens[i].value == "[":
-                # Skip until closing bracket
+                # Skip any array dimensions
                 i += 1
                 while i < len(self.tokens) and not (
                         self.tokens[i].type == TokenType.OP and self.tokens[i].value == "]"):
                     i += 1
-                i += 1  # skip closing bracket
+                i += 1
             if i < len(self.tokens) and self.tokens[i].type == TokenType.ID:
                 decl = self.parse_declaration()
-                return DeclStmt(declaration=decl)
+                return DeclStmt(declaration=decl)  # ✅ wrap in DeclStmt inside function bodies
 
-        # Handle control flow
+        # Control flow and blocks
         if t.type == TokenType.KW:
             if t.value == "if":
                 return self.parse_if()
@@ -245,7 +243,7 @@ class Parser:
         if t.type == TokenType.OP and t.value == "{":
             return self.parse_block()
 
-        # Otherwise, expression statement
+        # Otherwise, it's an expression statement
         expr = self.parse_expression()
         self.expect(TokenType.OP, ";")
         return ExprStmt(expr)
