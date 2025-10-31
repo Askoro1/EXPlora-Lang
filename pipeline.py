@@ -32,10 +32,10 @@ def main():
         pprint(ast, stream=f)
 
     # Infer Types
-    # tast = type_annotate_program(ast)
+    tast = type_annotate_program(ast)
 
     # Interpret TAST
-    interp = Interpreter(ast)
+    interp = Interpreter(tast)
     global_frame = interp.run()
 
     # Call main()

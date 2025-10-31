@@ -146,7 +146,7 @@ class Parser:
             dimension.append(size)
 
         if dimension:
-            return Type(base_type=base, dimension=dimension)
+            return Type(base_type=RecordType(name="array"), dimension=dimension[0])
         return Type(base_type=base, dimension=0)
 
     def parse_lambda_literal(self):
@@ -447,7 +447,7 @@ if __name__ == "__main__":
             }
         };
                 
-        auto f = [](int x, int y) {
+        int f = [](int x, int y) {
             return x + y;
         };
         
