@@ -1,6 +1,6 @@
 from typing import List, Optional
-from ast_nodes import *
-from tokenizer import Token, TokenType, tokenize
+from ..ast_nodes import *
+from .tokenizer import Token, TokenType, tokenize
 from pprint import pprint
 
 class ParserError(Exception):
@@ -74,14 +74,11 @@ class Parser:
         return ArrayLiteral(value=values)
 
     def parse_declaration(self):
-        # --- parse base type including array dims (e.g. int[2][2]) ---
         ttype = self.parse_type()
-
-        # --- now variable name ---
         name_token = self.expect(TokenType.ID)
         name = name_token.value
 
-        # --- function declaration ---
+        # Function declaration
         if self.accept(TokenType.OP, "("):
             params = []
             if not self.accept(TokenType.OP, ")"):
@@ -93,38 +90,35 @@ class Parser:
                         break
                     self.expect(TokenType.OP, ",")
             body = self.parse_block()
-
             return FunctionDef(name, params, ttype, body)
 
-        # --- variable initializer ---
+        # Variable initializer
         init = None
         if self.accept(TokenType.OP, "="):
-            # If initializer starts with [] (lambda), parse it directly
+            # --- Detect lambda initializer ---
             if (self.peek().type == TokenType.OP and self.peek().value == "[" and
                     self.pos + 1 < len(self.tokens) and
                     self.tokens[self.pos + 1].type == TokenType.OP and
                     self.tokens[self.pos + 1].value == "]"):
-                init = self.parse_lambda_literal()
-            # Record literal: Type { ... }  (e.g. = Point { ... })
+                init, lambda_type = self.parse_lambda_literal(declared_type=ttype)
+            # Array literal
+            elif self.peek().type == TokenType.OP and self.peek().value == "{":
+                init = self.parse_array_literal()
+            # Record literal
             elif self.peek().type == TokenType.ID and self.pos + 1 < len(self.tokens) and \
                     self.tokens[self.pos + 1].type == TokenType.OP and self.tokens[self.pos + 1].value == "{":
                 typename = self.next().value
                 init = self.parse_record_literal(typename)
-            # Array literal: = { ... }
-            elif self.peek().type == TokenType.OP and self.peek().value == "{":
-                init = self.parse_array_literal()
             else:
                 init = self.parse_expression()
 
         self.expect(TokenType.OP, ";")
+        if isinstance(init, LambdaLiteral):
+            var_type = lambda_type  # declared type wrapped as FunctionType
+        else:
+            var_type = ttype
 
-        # --- handle 'auto' ---
-        # if isinstance(ttype.base_type, PrimitiveType) and ttype.base_type.name == "auto":
-        #     if init is None:
-        #         raise ParserError(f"'auto' variable '{name}' must have an initializer at pos {name_token.pos}")
-        #     ttype = Type(PrimitiveType("auto"), 0)
-
-        return VarDecl(name=name, type=ttype, mutable=True, initializer=init)
+        return VarDecl(name=name, type=var_type, mutable=True, initializer=init)
 
     def parse_type(self):
         t = self.peek()
@@ -150,11 +144,11 @@ class Parser:
             return Type(base_type=base, dimension=len(dimension))
         return Type(base_type=base, dimension=0)
 
-    def parse_lambda_literal(self):
-        # Parse [] (...) -> type? { ... }
+    def parse_lambda_literal(self, declared_type: Type):
         self.expect(TokenType.OP, "[")
         self.expect(TokenType.OP, "]")
 
+        # Parse params
         self.expect(TokenType.OP, "(")
         params = []
         if not self.accept(TokenType.OP, ")"):
@@ -166,12 +160,17 @@ class Parser:
                     break
                 self.expect(TokenType.OP, ",")
 
-        rettype = Type(PrimitiveType("unit"), 0)
-        if self.accept(TokenType.OP, "->"):
-            rettype = self.parse_type()
-
         body = self.parse_block()
-        return LambdaLiteral(params=params, body=body)
+
+        # Use the declared type as return type
+        param_types = [p.type for p in params]
+        lambda_type = Type(
+            base_type=FunctionType(param_types=param_types, return_type=declared_type),
+            dimension=0
+        )
+
+        literal = LambdaLiteral(params=params, body=body)
+        return literal, lambda_type
 
 
     def parse_record_literal(self, typename: str):
