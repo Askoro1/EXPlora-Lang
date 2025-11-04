@@ -162,7 +162,7 @@ if __name__ == '__main__':
         return a + b;
     }
     
-    Record Point { x: int, y: int };
+    Record Point { x: int, y: int }
 
     int main() {
         int x = 10;

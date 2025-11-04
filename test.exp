@@ -2,7 +2,7 @@ int add(int a, int b) {
     return a + b;
 }
 
-Record Point { x: int, y: int };
+Record Point { x: int, y: int }
 
 int main() {
     int x = 10;
