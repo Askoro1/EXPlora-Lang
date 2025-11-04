@@ -1,6 +1,6 @@
 from typing import List, Optional
-from ast_nodes import *
-from tokenizer import Token, TokenType, tokenize
+from ..ast_nodes import *
+from .tokenizer import Token, TokenType, tokenize
 from pprint import pprint
 
 class ParserError(Exception):
@@ -155,7 +155,7 @@ class Parser:
             dimension.append(size)
 
         if dimension:
-            return Type(base_type=RecordType(name="array"), dimension=dimension[0])
+            return Type(base_type=base, dimension=len(dimension))
         return Type(base_type=base, dimension=0)
 
     def parse_lambda_literal(self):

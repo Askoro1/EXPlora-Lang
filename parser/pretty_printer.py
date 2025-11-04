@@ -1,12 +1,25 @@
-from ast_nodes import *
-from tokenizer import tokenize
-from parser import Parser
-
+from ..ast_nodes import *
+from .tokenizer import tokenize
+from .parser import Parser
 
 class PrettyPrinter:
     def __init__(self):
         self.indent_level = 0
         self.indent_str = "    "  # 4 spaces
+        self._in_vardecl = False
+
+    def infer_array_dimensions(self, array_literal):
+        """Recursively infer array dimension sizes from nested ArrayLiterals."""
+        dims = []
+        current = array_literal
+        while isinstance(current, ArrayLiteral):
+            dims.append(len(current.value))
+            # Go deeper only if all elements are arrays
+            if all(isinstance(v, ArrayLiteral) for v in current.value):
+                current = current.value[0]
+            else:
+                break
+        return dims
 
     def indent(self):
         self.indent_level += 1
@@ -34,11 +47,24 @@ class PrettyPrinter:
             body = self.pprint(node.body)
             return f"{self.pprint(ret_type)} {node.name}({params}) {body}"
 
+
         elif isinstance(node, VarDecl):
-            s = f"{self.pprint(node.type)} {node.name}"
+            # Base type
+            base_type_str = self.pprint(node.type.base_type)
+
+            # Try to infer array dimensions if it's an array and has an initializer
+            if node.type.dimension > 0 and isinstance(node.initializer, ArrayLiteral):
+                dims = self.infer_array_dimensions(node.initializer)
+                dim_str = "".join(f"[{d}]" for d in dims)
+                s = f"{base_type_str}{dim_str} {node.name}"
+            else:
+                s = f"{self.pprint(node.type)} {node.name}"
+
+            # Initializer
             if node.initializer:
                 s += f" = {self.pprint(node.initializer)}"
             s += ";"
+
             return s
 
 
@@ -136,21 +162,26 @@ class PrettyPrinter:
             body = self.pprint(node.body)
             return f"[]({params}) {body}"
 
-        elif isinstance(node, Type):
-            # <---- logic
-            s = self.pprint(node.base_type)
-            if isinstance(node.dimension, int) and node.dimension > 0:
-                s += "[]" * node.dimension
-            elif isinstance(node.dimension, list):
-                for dim in node.dimension:
-                    if dim is None:
-                        s += "[]"
-                    else:
-                        s += f"[{dim}]"
-            return s
 
-        else:
-            raise ValueError(f"Unknown AST node type: {type(node).__name__}")
+
+        elif isinstance(node, VarDecl):
+            self._in_vardecl = True
+
+            # Base type
+            base_type_str = self.pprint(node.type.base_type)
+            if node.type.dimension > 0 and isinstance(node.initializer, ArrayLiteral):
+                dims = self.infer_array_dimensions(node.initializer)
+                dim_str = "".join(f"[{d}]" for d in dims)
+                s = f"{base_type_str}{dim_str} {node.name}"
+            else:
+                s = f"{self.pprint(node.type)} {node.name}"
+            if node.initializer:
+                s += f" = {self.pprint(node.initializer)}"
+
+            s += ";"
+            self._in_vardecl = False
+
+            return s
 
 
 
