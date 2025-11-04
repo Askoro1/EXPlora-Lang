@@ -1,6 +1,6 @@
 from typing import List, Optional
-from ..ast_nodes import *
-from .tokenizer import Token, TokenType, tokenize
+from ast_nodes import *
+from tokenizer import Token, TokenType, tokenize
 from pprint import pprint
 
 class ParserError(Exception):
@@ -94,15 +94,7 @@ class Parser:
                     self.expect(TokenType.OP, ",")
             body = self.parse_block()
 
-            func_type = Type(
-                base_type=FunctionType(
-                    param_types=[p.type for p in params],
-                    return_type=ttype
-                ),
-                dimension=0
-            )
-
-            return FunctionDef(name=name, params=params, return_type=func_type, body=body)
+            return FunctionDef(name, params, ttype, body)
 
         # --- variable initializer ---
         init = None
@@ -127,10 +119,10 @@ class Parser:
         self.expect(TokenType.OP, ";")
 
         # --- handle 'auto' ---
-        if isinstance(ttype.base_type, PrimitiveType) and ttype.base_type.name == "auto":
-            if init is None:
-                raise ParserError(f"'auto' variable '{name}' must have an initializer at pos {name_token.pos}")
-            ttype = Type(PrimitiveType("auto"), 0)
+        # if isinstance(ttype.base_type, PrimitiveType) and ttype.base_type.name == "auto":
+        #     if init is None:
+        #         raise ParserError(f"'auto' variable '{name}' must have an initializer at pos {name_token.pos}")
+        #     ttype = Type(PrimitiveType("auto"), 0)
 
         return VarDecl(name=name, type=ttype, mutable=True, initializer=init)
 
