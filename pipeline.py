@@ -1,6 +1,7 @@
 import sys
 
 from .parser.parser import *
+from .parser.pretty_printer import *
 from .typeinference.type_annotator import *
 from .interpreter.interpreter import *
 from .interpreter.builtins_ import *
@@ -14,14 +15,14 @@ def main():
 
     try:
         with open(filename, 'r', encoding='utf-8') as f:
-            code = f.read()
+            code_ = f.read()
 
     except FileNotFoundError:
         print(f"File '{filename}' not found.")
         sys.exit(1)
 
     # Tokenize
-    tokens = tokenize(code)
+    tokens = tokenize(code_)
 
     # Parse
     parser = Parser(tokens)
@@ -30,6 +31,9 @@ def main():
     # for debug
     with open('output.txt', 'w', encoding='utf-8') as f:
         pprint(ast, stream=f)
+        #printer = PrettyPrinter()
+        #pretty_code = printer.pprint(ast)
+        #print(pretty_code, file=f)
 
     # Infer Types
     tast = type_annotate_program(ast)

@@ -114,10 +114,54 @@ class Interpreter:
             inferred = PrimitiveType("int")
         elif isinstance(v, float):
             inferred = PrimitiveType("float")
+
         elif NUMPY_ENABLED and isinstance(v, _np.ndarray):
-            inferred = RecordType("array")
+            shape = shape_of_array(v)
+            dim = len(shape)
+
+            if dim > 0:
+                type_ = v.dtype
+            else:
+                type_ = None
+
+            if type_ == int:
+                base_type = PrimitiveType("int")
+            elif type_ == float:
+                base_type = PrimitiveType("float")
+            elif type_ == bool:
+                base_type = PrimitiveType("bool")
+            elif type_ is None:
+                base_type = PrimitiveType("unit")
+            else:
+                raise RuntimeTypeError(f"Unsupported type: {type_}")
+
+            inferred = Type(base_type=base_type, dimension=dim)
+
         elif isinstance(v, list):
-            inferred = RecordType("array")
+            shape = shape_of_array(v)
+            dim = len(shape)
+
+            if dim > 0:
+                elem = v[0]
+                for it in range(dim - 1):
+                    elem = elem[0]
+                type_ = type(elem)
+            else:
+                type_ = None
+
+            if type_ == int:
+                base_type = PrimitiveType("int")
+            elif type_ == float:
+                base_type = PrimitiveType("float")
+            elif type_ == bool:
+                base_type = PrimitiveType("bool")
+            elif type_ is None:
+                base_type = PrimitiveType("unit")
+            else:
+                raise RuntimeTypeError(f"Unsupported type: {type_}")
+
+            inferred = Type(base_type=base_type, dimension=dim)
+
         elif isinstance(v, dict):
             rec_name = v.get("__record_name__")
             inferred = RecordType(rec_name if rec_name else "record")
@@ -136,7 +180,7 @@ class Interpreter:
             raise RuntimeTypeError(f"Unsupported type: {type(v)}")
 
         # expected.base_type may be PrimitiveType | RecordType | FunctionType
-        if isinstance(expected.base_type, PrimitiveType) or isinstance(expected.base_type, RecordType):
+        if (isinstance(expected.base_type, PrimitiveType) or isinstance(expected.base_type, RecordType)) and expected.dimension == 0:
             if isinstance(expected.base_type, RecordType) and isinstance(v, dict):
                 rec_name = v.get("__record_name__")
                 if rec_name is None:
@@ -191,15 +235,43 @@ class Interpreter:
 
         if isinstance(node, ArrayLiteral):
             items = [self.eval_expression(it, frame).value for it in node.value]
+
             if NUMPY_ENABLED:
                 items = _np.array(items)
             shape = shape_of_array(items)
             if isinstance(shape, tuple):
-                dim = shape[0]
+                dim = len(shape)
             else:
                 dim = 0
-            rv = RuntimeValue(items, static_type=Type(base_type=RecordType("array"),
-                                                    dimension=dim),
+
+            if NUMPY_ENABLED:
+                if dim > 0:
+                    type_ = items.dtype
+                else:
+                    type_ = None
+            else:
+                if dim > 0:
+                    elem = items[0]
+                    for it in range(dim - 1):
+                        elem = elem[0]
+                    type_ = type(elem)
+                else:
+                    type_ = None
+
+            if type_ == int:
+                base_type = PrimitiveType("int")
+            elif type_ == float:
+                base_type = PrimitiveType("float")
+            elif type_ == bool:
+                base_type = PrimitiveType("bool")
+            elif type_ is None:
+                base_type = PrimitiveType("unit")
+            else:
+                raise RuntimeTypeError(f"Unsupported type: {type_}")
+
+
+            rv = RuntimeValue(items, static_type=Type(base_type=base_type,
+                                                      dimension=dim),
                                                     shape=shape)
             return rv
 
