@@ -251,7 +251,11 @@ class Parser:
         # Otherwise, it's an expression statement
         expr = self.parse_expression()
         self.expect(TokenType.OP, ";")
-        return ExprStmt(expr)
+
+        if isinstance(expr, Assignment):
+            return expr
+        else:
+            return ExprStmt(expr)
 
     def parse_if(self):
         self.expect(TokenType.KW, "if")
