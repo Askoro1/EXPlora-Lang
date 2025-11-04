@@ -6,20 +6,6 @@ class PrettyPrinter:
     def __init__(self):
         self.indent_level = 0
         self.indent_str = "    "  # 4 spaces
-        self._in_vardecl = False
-
-    def infer_array_dimensions(self, array_literal):
-        """Recursively infer array dimension sizes from nested ArrayLiterals."""
-        dims = []
-        current = array_literal
-        while isinstance(current, ArrayLiteral):
-            dims.append(len(current.value))
-            # Go deeper only if all elements are arrays
-            if all(isinstance(v, ArrayLiteral) for v in current.value):
-                current = current.value[0]
-            else:
-                break
-        return dims
 
     def indent(self):
         self.indent_level += 1
@@ -30,9 +16,17 @@ class PrettyPrinter:
     def write_indent(self) -> str:
         return self.indent_str * self.indent_level
 
-    # ------------------------
-    # Entry point
-    # ------------------------
+    def infer_array_dimensions(self, array_literal):
+        dims = []
+        current = array_literal
+        while isinstance(current, ArrayLiteral):
+            dims.append(len(current.value))
+            if all(isinstance(v, ArrayLiteral) for v in current.value):
+                current = current.value[0]
+            else:
+                break
+        return dims
+
     def pprint(self, node) -> str:
         if isinstance(node, Program):
             return "\n".join(self.pprint(decl) for decl in node.declarations)
@@ -43,26 +37,14 @@ class PrettyPrinter:
             body = self.pprint(node.body)
             return f"{ret_type} {node.name}({params}) {body}"
 
-
         elif isinstance(node, VarDecl):
-            # ---------- FIX: when initializer is a lambda, prefer declared scalar type ----------
-            # if initializer is LambdaLiteral and the parser stored a FunctionType inside node.type,
-            # extract the return_type (the declared scalar) and print that instead of function signature.
-            if isinstance(node.initializer, LambdaLiteral):
-                # If parser stored a FunctionType as base_type, extract its return_type
-                if isinstance(node.type.base_type, FunctionType):
-                    declared_type = node.type.base_type.return_type
-                    declared_type_str = self.pprint(declared_type)
-                else:
-                    # if base_type is e.g. PrimitiveType already, use it
-                    declared_type_str = self.pprint(node.type.base_type)
-                s = f"{declared_type_str} {node.name}"
+            # Lambdas: print declared type, not full function type
+            if isinstance(node.initializer, LambdaLiteral) and isinstance(node.type.base_type, FunctionType):
+                declared_type = self.pprint(node.type.base_type.return_type)
+                s = f"{declared_type} {node.name}"
             else:
-                # Non-lambda: handle arrays/normal types as before
-                # Base type string
                 base_type_str = self.pprint(node.type.base_type)
-
-                # Try to infer array dimensions if it's an array and has an initializer
+                # Arrays
                 if node.type.dimension > 0 and isinstance(node.initializer, ArrayLiteral):
                     dims = self.infer_array_dimensions(node.initializer)
                     dim_str = "".join(f"[{d}]" for d in dims)
@@ -70,18 +52,15 @@ class PrettyPrinter:
                 else:
                     s = f"{self.pprint(node.type)} {node.name}"
 
-            # Initializer
             if node.initializer:
                 s += f" = {self.pprint(node.initializer)}"
             s += ";"
-
             return s
 
-
         elif isinstance(node, RecordTypeDecl):
-            # Print as "Record Point { x, y }"
-            field_names = ", ".join(f.name for f in node.fields)
-            return f"Record {node.name} {{ {field_names} }}"
+            # Print field names with types
+            fields_str = ", ".join(f"{f.name}: {self.pprint(f.type)}" for f in node.fields)
+            return f"Record {node.name} {{ {fields_str} }}"
 
         elif isinstance(node, PrimitiveType):
             return node.name
@@ -92,16 +71,8 @@ class PrettyPrinter:
         elif isinstance(node, Block):
             s = "{\n"
             self.indent()
-            count = len(node.statements)
-
-            for i, stmt in enumerate(node.statements):
-                is_last = (i == count - 1)
-                # Automatically return the last expression if it's ExprStmt
-                if is_last and isinstance(stmt, ExprStmt):
-                    s += self.write_indent() + "return " + self.pprint(stmt.expression) + ";\n"
-                else:
-                    s += self.write_indent() + self.pprint(stmt) + "\n"
-
+            for stmt in node.statements:
+                s += self.write_indent() + self.pprint(stmt) + "\n"
             self.dedent()
             s += self.write_indent() + "}"
             return s
@@ -148,32 +119,27 @@ class PrettyPrinter:
                 return str(node.value)
 
         elif isinstance(node, ArrayLiteral):
-            # Pretty-print nested arrays with indentation
             if all(isinstance(v, ArrayLiteral) for v in node.value):
                 s = "{\n"
                 self.indent()
-                lines = []
-                for v in node.value:
-                    lines.append(self.write_indent() + self.pprint(v))
+                lines = [self.write_indent() + self.pprint(v) for v in node.value]
                 s += ",\n".join(lines) + "\n"
                 self.dedent()
                 s += self.write_indent() + "}"
                 return s
             else:
-                elems = ", ".join(self.pprint(v) for v in node.value)
-                return "{" + elems + "}"
+                return "{" + ", ".join(self.pprint(v) for v in node.value) + "}"
 
         elif isinstance(node, RecordLiteral):
             fields = ", ".join(f"{k}: {self.pprint(v)}" for k, v in node.field_values.items())
             return f"{node.type} {{ {fields} }}"
 
         elif isinstance(node, LambdaLiteral):
-            params = ", ".join(f"{self.pprint(p.type) if p.type else 'auto'} {p.name}" for p in node.params)
+            params = ", ".join(f"{self.pprint(p.type)} {p.name}" for p in node.params)
             body = self.pprint(node.body)
             return f"[]({params}) {body}"
 
         elif isinstance(node, Type):
-            # FunctionType: show as ret_type(param_types...) (used only outside var-decls now)
             if isinstance(node.base_type, FunctionType):
                 ret_type_str = self.pprint(node.base_type.return_type)
                 param_strs = [self.pprint(t) for t in node.base_type.param_types]
@@ -181,16 +147,8 @@ class PrettyPrinter:
             else:
                 s = self.pprint(node.base_type)
 
-            # Handle array dimensions
-            if isinstance(node.dimension, list):
-                for dim in node.dimension:
-                    if dim is None:
-                        s += "[]"
-                    else:
-                        s += f"[{dim}]"
-            elif isinstance(node.dimension, int) and node.dimension > 0:
+            if isinstance(node.dimension, int) and node.dimension > 0:
                 s += "[]" * node.dimension
-
             return s
 
         else:
@@ -210,9 +168,8 @@ if __name__ == '__main__':
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
         int f = [](int x, int y) { return x + y; };
-        Point p = Point { x: 1, y: 2 };
         
-        Record Point { x, y }
+        Record Point { x: int, y: int }
         Point p = Point(1, 2);
         
         int[4][2] arr = {

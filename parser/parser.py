@@ -127,7 +127,11 @@ class Parser:
             base = PrimitiveType(t.value)
         elif t.type == TokenType.ID:
             name = self.next().value
-            base = RecordType(name)
+            if name in self.record_defs:
+                base = RecordType(name)
+            else:
+                # fallback: unknown type is still treated as RecordType
+                base = RecordType(name)
         else:
             raise ParserError(f"Unknown type {t.value} at pos {t.pos}")
 
@@ -395,16 +399,14 @@ class Parser:
         if not self.accept(TokenType.OP, "}"):
             while True:
                 field_name = self.expect(TokenType.ID).value
-                if self.peek().type == TokenType.KW or self.peek().type == TokenType.ID:
+
+                # Check for explicit type
+                if self.accept(TokenType.OP, ":"):
                     field_type = self.parse_type()
-                    field_name = self.expect(TokenType.ID).value
-                    fields.append(VarDecl(name=field_name, type=field_type, mutable=False))
                 else:
-                    fields.append(VarDecl(
-                        name=field_name,
-                        type=Type(PrimitiveType("auto"), 0),
-                        mutable=False
-                    ))
+                    field_type = Type(PrimitiveType("auto"), 0)
+
+                fields.append(VarDecl(name=field_name, type=field_type, mutable=False))
 
                 if self.accept(TokenType.OP, "}"):
                     break
@@ -412,7 +414,7 @@ class Parser:
 
         self.accept(TokenType.OP, ";")  # optional semicolon
 
-        # ✅ store in registry
+        # Store field names in registry for record literals
         self.record_defs[name] = [f.name for f in fields]
 
         return RecordTypeDecl(name=name, fields=fields)
@@ -426,14 +428,19 @@ if __name__ == "__main__":
 
     int main() {
         int x = 10;
-        float y = 6.2e-7;
+        float y = 3.14;
         bool flag = true;
-        int[5] arr = {1, 2, 3, 4, 5};
+        int[2][2] arr = {{1, 2}, {3, 4}};
+        int f = [](int x, int y) { return x + y; };
         
-        int[3][3] matrix = {
-            {1, 2, 3},
-            {4, 5, 6},
-            {7, 8, 9}
+        Record Point { x: int, y: int }
+        Point p = Point(1, 2);
+        
+        int[4][2] arr = {
+            {1, 2},
+            {3, 4},
+            {5, 6},
+            {7, 8}
         };
         
         float[2][2][2] cube = {
@@ -446,23 +453,14 @@ if __name__ == "__main__":
                 {7.0, 8.0}
             }
         };
-                
-        int f = [](int x, int y) {
-            return x + y;
-        };
-        
-        Point p = Point { x: 1, y: 2 };
-        
-        Record Point { x, y } 
-        Point p = Point(1, 2);
 
-        if (x < 20) {
+        if (x < y) {
             x = x + 1;
         } else {
             x = x - 1;
         }
 
-        while (x < 15) {
+        while (x < 20) {
             x = x + 2;
         }
 
