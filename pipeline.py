@@ -31,15 +31,15 @@ def main():
     # for debug
     with open('output.txt', 'w', encoding='utf-8') as f:
         pprint(ast, stream=f)
-        #printer = PrettyPrinter()
-        #pretty_code = printer.pprint(ast)
-        #print(pretty_code, file=f)
+        # printer = PrettyPrinter()
+        # pretty_code = printer.pprint(ast)
+        # print(pretty_code, file=f)
 
     # Infer Types
-    tast = type_annotate_program(ast)
+    #tast = type_annotate_program(ast)
 
     # Interpret TAST
-    interp = Interpreter(tast)
+    interp = Interpreter(ast)
     global_frame = interp.run()
 
     # Call main()

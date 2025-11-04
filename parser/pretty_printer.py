@@ -161,6 +161,8 @@ if __name__ == '__main__':
     int add(int a, int b) {
         return a + b;
     }
+    
+    Record Point { x: int, y: int };
 
     int main() {
         int x = 10;
@@ -168,8 +170,7 @@ if __name__ == '__main__':
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
         int f = [](int x, int y) { return x + y; };
-        
-        Record Point { x: int, y: int }
+    
         Point p = Point(1, 2);
         
         int[4][2] arr = {
