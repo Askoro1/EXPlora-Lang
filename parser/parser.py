@@ -232,7 +232,7 @@ class Parser:
         if t.type == TokenType.KW:
             if t.value == "if":
                 if_expr = self.parse_if()
-                return ExprStmt(if_expr)  # wrap IfExpr
+                return ExprStmt(if_expr)
             elif t.value == "while":
                 return self.parse_while()
             elif t.value == "return":
@@ -245,14 +245,12 @@ class Parser:
 
         # Block
         if t.type == TokenType.OP and t.value == "{":
-            block = self.parse_block()
-            return block
+            return self.parse_block()
 
         # Otherwise, normal expression
         expr = self.parse_expression()
         self.expect(TokenType.OP, ";")
 
-        # wrap everything in ExprStmt except Assignment
         if isinstance(expr, Assignment):
             return expr
         else:
