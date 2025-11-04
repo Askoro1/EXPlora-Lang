@@ -227,12 +227,13 @@ class Parser:
                 i += 1
             if i < len(self.tokens) and self.tokens[i].type == TokenType.ID:
                 decl = self.parse_declaration()
-                return DeclStmt(declaration=decl)  # ✅ wrap in DeclStmt inside function bodies
+                return DeclStmt(declaration=decl)
 
         # Control flow and blocks
         if t.type == TokenType.KW:
             if t.value == "if":
-                return self.parse_if()
+                if_expr = self.parse_if()
+                return ExprStmt(if_expr)  # ✅ wrap IfExpr in ExprStmt
             elif t.value == "while":
                 return self.parse_while()
             elif t.value == "return":
