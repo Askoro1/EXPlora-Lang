@@ -29,22 +29,22 @@ def main():
     ast = parser.parse()
 
     # for debug
-    with open('output.txt', 'w', encoding='utf-8') as f:
-        pprint(ast, stream=f)
+    #with open('output.txt', 'w', encoding='utf-8') as f:
+        #pprint(ast, stream=f)
         # printer = PrettyPrinter()
         # pretty_code = printer.pprint(ast)
         # print(pretty_code, file=f)
 
     # Infer Types
-    #tast = type_annotate_program(ast)
+    tast = type_annotate_program(ast)
 
     # Interpret TAST
-    interp = Interpreter(ast)
+    interp = Interpreter(tast)
     global_frame = interp.run()
 
     # Call main()
     call = FunctionCall(function=VarRef("main"), arguments=[])
-    interp.eval_expression(call, global_frame)
+    print(interp.eval_expression(call, global_frame).value)
 
     sys.exit(0)
     # except Exception as e:

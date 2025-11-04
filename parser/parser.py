@@ -213,13 +213,12 @@ class Parser:
             decl = self.parse_record_type_decl()
             return DeclStmt(declaration=decl)
 
-        # Handle variable declarations
+        # Variable declarations
         if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
                 or (t.type == TokenType.ID):
             # Look ahead to see if this is a declaration
             i = self.pos + 1
             while i < len(self.tokens) and self.tokens[i].type == TokenType.OP and self.tokens[i].value == "[":
-                # Skip any array dimensions
                 i += 1
                 while i < len(self.tokens) and not (
                         self.tokens[i].type == TokenType.OP and self.tokens[i].value == "]"):
@@ -233,7 +232,7 @@ class Parser:
         if t.type == TokenType.KW:
             if t.value == "if":
                 if_expr = self.parse_if()
-                return ExprStmt(if_expr)  # ✅ wrap IfExpr in ExprStmt
+                return ExprStmt(if_expr)  # wrap IfExpr
             elif t.value == "while":
                 return self.parse_while()
             elif t.value == "return":
@@ -246,12 +245,14 @@ class Parser:
 
         # Block
         if t.type == TokenType.OP and t.value == "{":
-            return self.parse_block()
+            block = self.parse_block()
+            return block
 
-        # Otherwise, it's an expression statement
+        # Otherwise, normal expression
         expr = self.parse_expression()
         self.expect(TokenType.OP, ";")
 
+        # wrap everything in ExprStmt except Assignment
         if isinstance(expr, Assignment):
             return expr
         else:
@@ -273,7 +274,7 @@ class Parser:
         self.expect(TokenType.OP, "(")
         cond = self.parse_expression()
         self.expect(TokenType.OP, ")")
-        body = self.parse_statement()
+        body = ExprStmt(self.parse_statement())
         return WhileLoop(condition=cond, body=body)
 
     # ------------------------
