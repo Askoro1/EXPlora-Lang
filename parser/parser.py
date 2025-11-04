@@ -1,6 +1,6 @@
 from typing import List, Optional
-from ..ast_nodes import *
-from .tokenizer import Token, TokenType, tokenize
+from ast_nodes import *
+from tokenizer import Token, TokenType, tokenize
 from pprint import pprint
 
 class ParserError(Exception):
@@ -93,7 +93,16 @@ class Parser:
                         break
                     self.expect(TokenType.OP, ",")
             body = self.parse_block()
-            return FunctionDef(return_type=ttype, name=name, params=params, body=body)
+
+            func_type = Type(
+                base_type=FunctionType(
+                    param_types=[p.type for p in params],
+                    return_type=ttype
+                ),
+                dimension=0
+            )
+
+            return FunctionDef(name=name, params=params, return_type=func_type, body=body)
 
         # --- variable initializer ---
         init = None

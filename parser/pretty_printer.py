@@ -1,6 +1,6 @@
-from ..ast_nodes import *
-from .tokenizer import tokenize
-from .parser import Parser
+from ast_nodes import *
+from tokenizer import tokenize
+from parser import Parser
 
 
 class PrettyPrinter:
@@ -25,9 +25,14 @@ class PrettyPrinter:
             return "\n".join(self.pprint(decl) for decl in node.declarations)
 
         elif isinstance(node, FunctionDef):
+            ret_type = node.return_type
+            if isinstance(ret_type.base_type, FunctionType):
+                # Extract the true return type from the function type
+                ret_type = ret_type.base_type.return_type
+
             params = ", ".join(f"{self.pprint(param.type)} {param.name}" for param in node.params)
             body = self.pprint(node.body)
-            return f"{self.pprint(node.return_type)} {node.name}({params}) {body}"
+            return f"{self.pprint(ret_type)} {node.name}({params}) {body}"
 
         elif isinstance(node, VarDecl):
             s = f"{self.pprint(node.type)} {node.name}"
