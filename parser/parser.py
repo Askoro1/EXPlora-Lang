@@ -357,7 +357,7 @@ class Parser:
                                 break
                             self.expect(TokenType.OP, ",")
 
-                    # ✅ Record constructor call handling
+                    # Record constructor call handling
                     if isinstance(node, VarRef) and node.name in self.record_defs:
                         field_names = self.record_defs[node.name]
                         if len(args) != len(field_names):
