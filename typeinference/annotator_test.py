@@ -281,5 +281,25 @@ class TypeCheckerTests(unittest.TestCase):
         self.assertIn("x", self.env)
         self.assertEqual(self.env["x"].base_type.name, "int")
 
+    def test_record_literal_with_type_as_name_normalizes(self):
+        point = ast_nodes.RecordType("Point")
+        point.fields = {"x": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                        "y": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)}
+        env = {"Point": ast_nodes.Type(point, 0)}
+        decl = ast_nodes.VarDecl(
+            name="p",
+            type=env["Point"],
+            mutable=False,
+            initializer=ast_nodes.RecordLiteral(
+                env["Point"],
+                {"x": ast_nodes.PrimitiveLiteral(1), "y": ast_nodes.PrimitiveLiteral(2)}
+            )
+        )
+        program = ast_nodes.Program(declarations=[decl])
+        # Pre-fix: raises TypeError (mismatch). Post-fix: no exception and:
+        type_annotator.type_annotate_program(program, env)
+        self.assertIn("p", env)
+        self.assertEqual(env["p"], env["Point"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -89,14 +89,44 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(fn_base, 0)
 
         case ast_nodes.RecordLiteral(record_name, field_values):
-            # Check that each record field type is valid
-            for field_name, field_value in field_values.items():
-                try:
-                    infer_expression_type(field_value, env)
-                except TypeError:
-                    raise TypeError(f"Error inferring type of {field_name}: {field_value}")
+            # Make sure Record name is a string, and not a Type
+            if isinstance(record_name, str):
+                canonical_name = record_name
+            elif isinstance(record_name, ast_nodes.RecordType):
+                canonical_name = record_name.name
+            elif (isinstance(record_name, ast_nodes.Type) and
+                  isinstance(record_name.base_type, ast_nodes.RecordType)):
+                canonical_name = record_name.base_type.name
+            else:
+                raise TypeError(f"Invalid record name: {record_name!r}")
 
-            return ast_nodes.Type(ast_nodes.RecordType(record_name), 0)
+            if (canonical_name not in env or
+                    not isinstance(env[canonical_name].base_type, ast_nodes.RecordType)):
+                raise TypeError(f"Unknown record type: {canonical_name}")
+
+            declared_rec_type = env[canonical_name]
+            declared_fields = getattr(declared_rec_type.base_type, "fields", {})
+
+            # missing required fields
+            for fname in declared_fields.keys():
+                if fname not in field_values:
+                    raise TypeError(f"Missing field '{fname}' for record '{canonical_name}'")
+
+            # unexpected extra fields
+            for fname in field_values.keys():
+                if fname not in declared_fields:
+                    raise TypeError(f"Field '{fname}' not found in record '{canonical_name}'")
+
+            # type-check each provided field
+            for fname, fexpr in field_values.items():
+                vtype = infer_expression_type(fexpr, env)
+                etype = declared_fields[fname]
+                if vtype.base_type != etype.base_type or vtype.dimension != etype.dimension:
+                    raise TypeError(
+                        f"Type mismatch for field '{fname}': expected {etype}, got {vtype}"
+                    )
+
+            return ast_nodes.Type(declared_rec_type.base_type, 0)
 
         case ast_nodes.VarRef(name):
             if name not in env:
