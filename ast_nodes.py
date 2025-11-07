@@ -126,7 +126,7 @@ class LambdaLiteral:
 
 @dataclass
 class RecordLiteral:
-    type: str
+    type: Type
     field_values: dict[str, 'Expression']
 
 

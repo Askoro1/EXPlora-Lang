@@ -296,7 +296,7 @@ class Interpreter:
 
         if isinstance(node, RecordLiteral):
             # node.type is the name of the record (string)
-            rec_name = node.type
+            rec_name = node.type.base_type.name
             if rec_name not in self.type_registry:
                 raise RuntimeTypeError(f"Unknown record type '{rec_name}'")
             layout = self.type_registry[rec_name]

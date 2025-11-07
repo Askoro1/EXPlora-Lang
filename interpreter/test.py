@@ -148,7 +148,7 @@ class TestInterpreter(unittest.TestCase):
 
         # var p:Point = Point { x:1, y:2 }
         rlit = RecordLiteral(
-            type="Point",
+            type=make_type("Point"),
             field_values={
                 "x": PrimitiveLiteral(1),
                 "y": PrimitiveLiteral(2),
@@ -162,7 +162,9 @@ class TestInterpreter(unittest.TestCase):
         gf = interp.run()
 
         p_val = gf.lookup("p").value
-        self.assertEqual(p_val, {"__record_name__": "Point", "x": 1, "y": 2})
+
+        self.assertEqual(p_val,
+                         {"__record_name__": Type(base_type=RecordType(name='Point'), dimension=0), "x": 1, "y": 2})
 
     def test_record_constructor_call(self):
         # record Point { x:int, y:int }
@@ -224,7 +226,7 @@ class TestInterpreter(unittest.TestCase):
 
         # Wrong: x is float instead of int
         rlit = RecordLiteral(
-            type="Point",
+            type=make_type("Point"),
             field_values={"x": PrimitiveLiteral(3.14), "y": PrimitiveLiteral(2)}
         )
         decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
@@ -238,7 +240,7 @@ class TestInterpreter(unittest.TestCase):
             name="Point",
             fields=[VarDecl("x", make_type("int"), False), VarDecl("y", make_type("int"), False)]
         )
-        rlit = RecordLiteral(type="Point", field_values={"x": PrimitiveLiteral(1)})
+        rlit = RecordLiteral(type=make_type("Point"), field_values={"x": PrimitiveLiteral(1)})
         decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
 
         prog = Program(declarations=[rt, decl])
@@ -250,7 +252,7 @@ class TestInterpreter(unittest.TestCase):
             name="Point",
             fields=[VarDecl("x", make_type("int"), False)]
         )
-        rlit = RecordLiteral(type="Point", field_values={"x": PrimitiveLiteral(1), "y": PrimitiveLiteral(2)})
+        rlit = RecordLiteral(type=make_type("Point"), field_values={"x": PrimitiveLiteral(1), "y": PrimitiveLiteral(2)})
         decl = VarDecl(name="p", type=make_type("Point"), mutable=True, initializer=rlit)
         prog = Program(declarations=[rt, decl])
         with self.assertRaises(RuntimeTypeError):
@@ -397,7 +399,7 @@ class TestInterpreter(unittest.TestCase):
 
     def test_function_broadcast_array_and_scalar(self):
         # Define f(x: float): float { return x * 2 }
-        param = VarDecl(name="x", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        param = VarDecl(name="x", type=Type(PrimitiveType("array"), 1), mutable=True, initializer=None)
         body = OperatorCall('*', [VarRef("x"), PrimitiveLiteral(2)])
         f_def = FunctionDef(name="f", params=[param],
                             body=body,
@@ -419,7 +421,7 @@ class TestInterpreter(unittest.TestCase):
 
     def test_function_broadcast_array_and_scalar2(self):
         # Define g(a: float, b: float): float { return a + b }
-        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 1), mutable=True, initializer=None)
         param_b = VarDecl(name="b", type=Type(PrimitiveType("int"), 0), mutable=True, initializer=None)
         body = OperatorCall('+', [VarRef("a"), VarRef("b")])
         g_def = FunctionDef(name="g", params=[param_a, param_b], body=body, return_type=Type(PrimitiveType("float"), 0))
@@ -440,8 +442,8 @@ class TestInterpreter(unittest.TestCase):
 
     def test_function_broadcast_array_pair(self):
         # g(a: float, b: float): float { return a * b }
-        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
-        param_b = VarDecl(name="b", type=Type(PrimitiveType("array"), 0), mutable=True, initializer=None)
+        param_a = VarDecl(name="a", type=Type(PrimitiveType("array"), 1), mutable=True, initializer=None)
+        param_b = VarDecl(name="b", type=Type(PrimitiveType("array"), 1), mutable=True, initializer=None)
         body = OperatorCall('*', [VarRef("a"), VarRef("b")])
         g_def = FunctionDef(name="g", params=[param_a, param_b], body=body, return_type=Type(PrimitiveType("float"), 0))
 

@@ -8,7 +8,7 @@ from .interpreter.builtins_ import *
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python pipeline.py <filename>")
+        print('Usage: python -m "EXPlora-Lang".pipeline <filename>')
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -21,6 +21,7 @@ def main():
         print(f"File '{filename}' not found.")
         sys.exit(1)
 
+    #try:
     # Tokenize
     tokens = tokenize(code_)
 
@@ -30,13 +31,16 @@ def main():
 
     # for debug
     #with open('output.txt', 'w', encoding='utf-8') as f:
-        #pprint(ast, stream=f)
+        # pprint(ast, stream=f)
         # printer = PrettyPrinter()
         # pretty_code = printer.pprint(ast)
         # print(pretty_code, file=f)
 
     # Infer Types
     tast = type_annotate_program(ast)
+
+    with open('output.txt', 'w', encoding='utf-8') as f:
+        pprint(tast, stream=f)
 
     # Interpret TAST
     interp = Interpreter(tast)
@@ -47,9 +51,9 @@ def main():
     print(interp.eval_expression(call, global_frame).value)
 
     sys.exit(0)
-    # except Exception as e:
-    #     print(f"{type(e).__name__}: {e}")
-    #     sys.exit(1)
+    #except Exception as e:
+    #   print(f"{type(e).__name__}: {e}")
+    #   sys.exit(1)
 
 if __name__ == '__main__':
     main()
