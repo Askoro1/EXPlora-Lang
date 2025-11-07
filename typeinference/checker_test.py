@@ -49,11 +49,11 @@ class TypeCheckerTests(unittest.TestCase):
     def test_record_literal(self):
         point_record = ast_nodes.RecordType("Point")
         point_record.fields = {
-            "x": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
-            "y": ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0)
+            "x": ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0),
+            "y": ast_nodes.Type(ast_nodes.PrimitiveType("float"), 0)
         }
 
-        env = {"Coord" : ast_nodes.Type(point_record, 0)}
+        env = {"Point" : ast_nodes.Type(point_record, 0)}
 
         node = ast_nodes.RecordLiteral("Point", {
             "x": ast_nodes.PrimitiveLiteral(1.0),

@@ -301,5 +301,32 @@ class TypeCheckerTests(unittest.TestCase):
         self.assertIn("p", env)
         self.assertEqual(env["p"], env["Point"])
 
+    def test_while_body_is_exprstmt_block(self):
+        env = {}
+        prog = ast_nodes.Program(declarations=[
+            ast_nodes.VarDecl(
+                name="x", type=None, mutable=False,
+                initializer=ast_nodes.Block([
+                    ast_nodes.DeclStmt(ast_nodes.VarDecl(
+                        name="a", type=ast_nodes.Type(ast_nodes.PrimitiveType("int"), 0),
+                        mutable=True, initializer=ast_nodes.PrimitiveLiteral(0)
+                    )),
+                    ast_nodes.WhileLoop(
+                        condition=ast_nodes.OperatorCall("<", [ast_nodes.VarRef("a"), ast_nodes.PrimitiveLiteral(1)]),
+                        body=ast_nodes.ExprStmt(ast_nodes.Block([
+                            ast_nodes.Assignment(
+                                lvalue=ast_nodes.VarRef("a"),
+                                rvalue=ast_nodes.OperatorCall("+",
+                                                              [ast_nodes.VarRef("a"), ast_nodes.PrimitiveLiteral(1)])
+                            )
+                        ]))
+                    ),
+                    ast_nodes.ExprStmt(ast_nodes.VarRef("a"))
+                ])
+            )
+        ])
+        type_annotator.type_annotate_program(prog, env)
+        assert env["x"].base_type.name == "int"
+
 if __name__ == "__main__":
     unittest.main()

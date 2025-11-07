@@ -298,8 +298,9 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                 and cond_type.dimension == 0):
                             raise TypeError(f"While condition must be bool, got {cond_type}")
 
-                        # assume body is a Block expression node
-                        infer_expression_type(body, block_env)
+                        # The body might be a statement, not an expression.
+                        # Wrap the body in a Block so that it is correctly handled.
+                        infer_expression_type(ast_nodes.Block([body]), block_env)
 
                         last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
 
