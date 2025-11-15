@@ -1,19 +1,19 @@
 from .. import ast_nodes
 
-"""
-Implements array broadcasting rules similar to NumPy.
-Aligns dimensions from the right and checks compatibility.
-
-Args:
-    param_dim: The expected dimension of the respective parameter.
-    arg_dim: The actual dimension of a provided argument.
-
-Returns:
-    int: The resulting broadcasted dimension.
-"""
 # I find it useful to think of this applies to pow([1,2,3], 2) when trying to understand broadcasting.
 # I added that as an example throughout.
 def broadcast_dimensions(param_dims: list[int], arg_dims: list[int]) -> int:
+    """
+    Implements array broadcasting rules similar to NumPy.
+    Aligns dimensions from the right and checks compatibility.
+
+    Args:
+        param_dim: The expected dimension of the respective parameter.
+        arg_dim: The actual dimension of a provided argument.
+
+    Returns:
+        int: The resulting broadcasted dimension.
+    """
     # param_dims [0, 0] : expected int, returns int
     # arg_dims [1, 0] : given array, returns int
 
@@ -27,17 +27,17 @@ def broadcast_dimensions(param_dims: list[int], arg_dims: list[int]) -> int:
             raise TypeError(f"Cannot broadcast dimensions {p} and {a}")
     return max_dim
 
-"""
-Takes an expression as input and returns its type as output.
-
-Args:
-  expr: ast_nodes.Expression - The expression in question. 
-  env: dict[str, ast_nodes.Type] - The environment where program variables are recorded. 
-
-Returns:
-  ast_nodes.Type: The type of the expression.
-"""
 def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.Type]) -> ast_nodes.Type:
+    """
+    Takes an expression as input and returns its type as output.
+
+    Args:
+      expr: ast_nodes.Expression - The expression in question.
+      env: dict[str, ast_nodes.Type] - The environment where program variables are recorded.
+
+    Returns:
+      ast_nodes.Type: The type of the expression.
+    """
     # Check which expression type we are dealing with
     match expr:
         # Primitive types are just returned

@@ -1,35 +1,35 @@
 from . import type_checker
 from .. import ast_nodes
 
-"""
-Entry point function. Goes through all of the program declarations and calls
-the annotation function.
-
-Args:
-  program: ast_nodes.Program - The AST to be annotated. 
-  env: dict[str, ast_nodes.Type] - The environment where program variables are recorded.
-
-Returns:
-  program: The Typed AST (TAST) of the program.
-"""
 def type_annotate_program(program, env=None):
+    """
+    Entry point function. Goes through all of the program declarations and calls
+    the annotation function.
+
+    Args:
+      program: ast_nodes.Program - The AST to be annotated.
+      env: dict[str, ast_nodes.Type] - The environment where program variables are recorded.
+
+    Returns:
+      program: The Typed AST (TAST) of the program.
+    """
     if env is None:
         env = {}
     for decl in program.declarations:
         annotate_declaration(decl, env)
     return program
 
-"""
-For each declaration in the program, annotate its type to the AST.
-
-Args: 
-    declaration: ast_nodes.Declaration - The declaration in question.
-    env: dict[str, ast_nodes.Type] - The environment where program variables are recorded. 
-    
-Returns:
-    None
-"""
 def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_nodes.Type]):
+    """
+    For each declaration in the program, annotate its type to the AST.
+
+    Args:
+        declaration: ast_nodes.Declaration - The declaration in question.
+        env: dict[str, ast_nodes.Type] - The environment where program variables are recorded.
+
+    Returns:
+        None
+    """
     match declaration:
         case ast_nodes.VarDecl(name, declared_type, mutable, initializer):
             if initializer:
@@ -99,15 +99,15 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
             # Attach the type to the declaration node itself
             setattr(declaration, "type", env[name])
 
-"""
-Traversal only function. Figures out what kind of statement it is dealing
-with, and calls either the expression annotation or itself.
-
-Args:
-    stmt: The statement in question.
-    env: The environment where program variables are recorded. 
-"""
 def annotate_statement(stmt, env):
+    """
+    Traversal only function. Figures out what kind of statement it is dealing
+    with, and calls either the expression annotation or itself.
+
+    Args:
+        stmt: The statement in question.
+        env: The environment where program variables are recorded.
+    """
     if isinstance(stmt, ast_nodes.Assignment):
         annotate_expression(stmt.lvalue, env)
         annotate_expression(stmt.rvalue, env)
@@ -119,20 +119,20 @@ def annotate_statement(stmt, env):
     elif isinstance(stmt, ast_nodes.ExprStmt):
         annotate_expression(stmt.expression, env)
 
-"""
-Recursively goes to lower levels of the AST. 
-Once Primitives are reached,  annotate with their types. 
-Return to parent level and annotate based on children types.
-Repeat process for entire AST.
-
-Args: 
-    expr: The expression whose type is being checked.
-    env: The environment where program variables are recorded.
-    
-Returns:
-    expr: The expression, now typed.
-"""
 def annotate_expression(expr, env):
+    """
+    Recursively goes to lower levels of the AST.
+    Once Primitives are reached,  annotate with their types.
+    Return to parent level and annotate based on children types.
+    Repeat process for entire AST.
+
+    Args:
+        expr: The expression whose type is being checked.
+        env: The environment where program variables are recorded.
+
+    Returns:
+        expr: The expression, now typed.
+    """
     match expr:
         # Literal Cases
         case ast_nodes.ArrayLiteral(value):
