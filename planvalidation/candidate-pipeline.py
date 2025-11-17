@@ -44,7 +44,7 @@ def manual_edit(original_plan: str, errors: list[str]) -> str | None:
 
     return cleaned
 
-def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan_txt: str, generator_name: str = "GENERATOR_NOT_SET", judge_name: str = "JUDGE_NOT_SET", ) -> None:
+def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan_txt: str, mode: str, generator_name: str = "GENERATOR_NOT_SET", judge_name: str = "JUDGE_NOT_SET", ) -> None:
     """
     Logs the attempt with relevant information.
     """
@@ -57,6 +57,7 @@ def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan
         "validity": validity,
         "reason": reason,
         "plan": plan_txt,
+        "mode": mode,
     }
 
     with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -76,6 +77,11 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
         # Validate the plan
         ok, errors, plan_result = validate_plan_json(plan_str)
 
+        if manual_check:
+            mode = "MANUAL"
+        else:
+            mode = "LLM"
+
         # If there's a valid plan
         if ok and plan_result is not None:
             log_plan_attempt(
@@ -84,6 +90,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                 validity="valid",
                 reason="",
                 plan_txt=plan_str,
+                mode=mode,
                 generator_name=generator_name,
                 judge_name=judge_name,
             )
@@ -105,8 +112,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                     validity="invalid",
                     reason=error_msg,
                     plan_txt=plan_str,
-                    generator_name=generator_name,
-                    judge_name=judge_name,
+                    mode=mode,
                 )
                 print("Plan was invalid : Manual Check.")
 
@@ -124,8 +130,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                         validity="valid",
                         reason="manual correction",
                         plan_txt=edited_plan,
-                        generator_name=generator_name,
-                        judge_name=judge_name,
+                        mode=mode,
                     )
                     print("Plan became valid after manual correction.")
 
@@ -145,6 +150,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                 validity="invalid",
                 reason=error_msg,
                 plan_txt=plan_str,
+                mode=mode,
                 generator_name=generator_name,
                 judge_name=judge_name,
             )
