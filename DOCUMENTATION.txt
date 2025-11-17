@@ -1,0 +1,271 @@
+EXPLORA-LANG SPECIFICATION
+==========================
+
+This document fully defines the EXPlora-Lang programming language.
+It is intended for LLMs, so all rules are explicit, deterministic, and unambiguous.
+When generating EXPlora-Lang code, the model MUST follow this specification exactly.
+
+
+------------------------------------------------------------
+1. LANGUAGE OVERVIEW
+------------------------------------------------------------
+
+EXPlora-Lang is a statically typed, C-like language with:
+- Explicit types
+- Functions
+- Records (struct-like)
+- Multi-dimensional arrays
+- First-class lambdas
+- Basic control flow (if, else, while)
+- Strongly typed expressions
+- Return statements
+- Deterministic syntax
+
+
+------------------------------------------------------------
+2. TYPES
+------------------------------------------------------------
+
+Primitive types:
+    int
+    float
+    bool
+
+Composite types:
+    T[N]                 → 1D array of size N
+    T[N][M]              → 2D array
+    T[A][B][C] …         → Multi-dimensional array
+
+User-defined record types:
+    Record Name { field1: Type, field2: Type, ... }
+
+Examples:
+    int
+    float[10]
+    int[4][2]
+    Record Point { x: int, y: int }
+
+
+------------------------------------------------------------
+3. VARIABLES & ASSIGNMENT
+------------------------------------------------------------
+
+Variables are declared with explicit types:
+
+    int x = 10;
+    float y = 3.14;
+    bool flag = true;
+
+Records:
+
+    Point p = Point(1, 2);
+
+Lambdas:
+
+    int f = [](int a, int b) { return a + b; };
+
+Array declarations:
+
+    int[2][2] arr = {{1, 2}, {3, 4}};
+
+Arrays must match exactly in dimension and size.
+
+
+------------------------------------------------------------
+4. FUNCTIONS
+------------------------------------------------------------
+
+Syntax:
+
+    ReturnType name(Type arg1, Type arg2, ...) {
+        statements...
+        return expression;
+    }
+
+Example:
+
+    int add(int a, int b) {
+        return a + b;
+    }
+
+Functions must always end with `return` unless return type is void.
+
+
+------------------------------------------------------------
+5. RECORDS
+------------------------------------------------------------
+
+Syntax:
+
+    Record Name { field1: Type, field2: Type, ... }
+
+Instantiating:
+
+    Name var = Name(value1, value2);
+
+Record fields are accessed as:
+
+    p.x
+    p.y
+
+
+------------------------------------------------------------
+6. LAMBDAS
+------------------------------------------------------------
+
+Lambdas act like inline functions and return expressions.
+
+Syntax:
+
+    [](Type a, Type b) { return a + b; }
+
+Assignment example:
+
+    int f = [](int x, int y) { return x + y; };
+
+
+------------------------------------------------------------
+7. ARRAYS
+------------------------------------------------------------
+
+Multi-dimensional arrays are supported.
+
+Declaration:
+
+    int[4][2] arr = {
+        {1, 2},
+        {3, 4},
+        {5, 6},
+        {7, 8}
+    };
+
+Float example:
+
+    float[2][2][2] cube = {
+        {
+            {1.0, 2.0},
+            {3.0, 4.0}
+        },
+        {
+            {5.0, 6.0},
+            {7.0, 8.0}
+        }
+    };
+
+
+------------------------------------------------------------
+8. CONTROL FLOW
+------------------------------------------------------------
+
+IF / ELSE:
+
+    if (x < y) {
+        x = x + 1;
+    } else {
+        x = x - 1;
+    }
+
+WHILE:
+
+    while (x < 20) {
+        x = x + 2;
+    }
+
+
+------------------------------------------------------------
+9. EXPRESSIONS
+------------------------------------------------------------
+
+Supported operators:
+    +  -  *  /
+    <  >  <=  >=  ==  !=
+    &&  ||
+
+Boolean literals:
+    true
+    false
+
+Parentheses are supported:
+    (x + 3) * (y - 1)
+
+
+------------------------------------------------------------
+10. STATEMENTS
+------------------------------------------------------------
+
+The following constructs are allowed:
+
+- Variable declaration
+- Variable assignment
+- Function call
+- Record instantiation
+- Array literal initialization
+- If / else
+- While
+- Return
+
+
+------------------------------------------------------------
+11. PROGRAM STRUCTURE
+------------------------------------------------------------
+
+Typical program:
+
+    Record Point { x: int, y: int }
+
+    int add(int a, int b) {
+        return a + b;
+    }
+
+    int main() {
+        int x = 10;
+        float y = 3.14;
+
+        Point p = Point(1, 2);
+
+        if (x < y) {
+            x = x + 1;
+        } else {
+            x = x - 1;
+        }
+
+        return add(x, 5);
+    }
+
+
+------------------------------------------------------------
+12. STYLE RULES FOR CODE GENERATION
+------------------------------------------------------------
+
+When generating EXPlora-Lang code:
+
+- ALWAYS emit explicit types.
+- ALWAYS end statements with semicolons.
+- RECORD names must start with uppercase letters.
+- VARIABLE and FUNCTION names must start with lowercase letters.
+- Arrays must be initialized with properly nested braces.
+- Lambdas MUST return an expression.
+- Indentation must be 4 spaces.
+- Code must be syntactically valid with no missing braces.
+
+
+------------------------------------------------------------
+13. MAPPING FROM HIGH-LEVEL PLAN TO EXPLORA-LANG
+------------------------------------------------------------
+
+If an LLM receives a high-level data plan (e.g., load_csv, filter, group_by, aggregate, visualize),
+it must generate EXPlora-Lang code that:
+
+- Represents every step as a function call or sequence of statements.
+- Stores the result of each step in a variable whose name matches the plan's “produces” value.
+- Ensures variables exist before they are used.
+- Ensures all types are explicitly declared (e.g., `Record Row`, `int[][]`, etc.).
+- Generates consistent, valid, compilable EXPlora-Lang.
+
+The LLM MUST NOT generate Python, JavaScript, or pseudo-code.
+It MUST output ONLY EXPlora-Lang as defined above.
+
+
+------------------------------------------------------------
+END OF SPECIFICATION
+------------------------------------------------------------
