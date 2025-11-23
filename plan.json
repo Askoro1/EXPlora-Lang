@@ -1,60 +1,65 @@
 {
-    "problem": "Read a CSV file, group data by a specified 'category' column, calculate the mean of a 'value' column for each group, and then visualize the results as a bar chart.",
+    "problem": "Read a CSV file, group data by the 'category' column, calculate the mean of the 'value' column for each group, and then visualize the results as a bar chart.",
     "data_requirements": [
         {
             "name": "csv_file_path",
             "type": "string",
-            "description": "The file path to the input CSV data. The CSV is expected to contain 'category' and 'value' columns."
+            "description": "The file path to the input CSV data. The CSV is expected to contain at least 'category' and 'value' columns."
         }
     ],
     "steps": [
         {
             "id": 1,
-            "description": "Import necessary libraries: pandas for data manipulation and matplotlib.pyplot for plotting.",
+            "description": "Define a 'Record' type named 'CsvRow' with fields 'category' (int) and 'value' (float) to represent the structure of a single row from the input CSV file.",
             "dependencies": []
         },
         {
             "id": 2,
-            "description": "Load the CSV file from the specified 'csv_file_path' into a pandas DataFrame.",
+            "description": "Define a 'Record' type named 'GroupedData' with fields 'category' (int), 'sum_value' (float), and 'count' (int). This record will be used to store intermediate sums and counts for each category during the aggregation process.",
+            "dependencies": []
+        },
+        {
+            "id": 3,
+            "description": "Define a 'Record' type named 'MeanResult' with fields 'category' (int) and 'mean_value' (float). This record will store the final calculated mean for each category.",
+            "dependencies": []
+        },
+        {
+            "id": 4,
+            "description": "Call a 'loadCsv' function, passing the 'csv_file_path'. This function will read the CSV file, parse its contents, and return an array of 'CsvRow' records. Store the result in a variable named 'csv_data'.",
             "dependencies": [
                 1
             ]
         },
         {
-            "id": 3,
-            "description": "Group the DataFrame by the 'category' column and calculate the mean of the 'value' column for each category. Store the result in a new DataFrame or Series.",
+            "id": 5,
+            "description": "Initialize an empty array of 'GroupedData' records. This array will serve as the primary data structure for accumulating sums and counts for each category.",
             "dependencies": [
                 2
             ]
         },
         {
-            "id": 4,
-            "description": "Prepare the aggregated data for plotting. This might involve resetting the index of the grouped result to make 'category' a regular column if it became an index during grouping.",
-            "dependencies": [
-                3
-            ]
-        },
-        {
-            "id": 5,
-            "description": "Create a bar chart using matplotlib.pyplot. The 'category' column will be used for the x-axis and the calculated mean 'value' for the y-axis.",
-            "dependencies": [
-                4
-            ]
-        },
-        {
             "id": 6,
-            "description": "Add appropriate labels to the x-axis ('Category'), y-axis ('Mean Value'), and a title to the chart ('Mean Value by Category').",
+            "description": "Iterate through each 'CsvRow' in the 'csv_data' array. For each row, check if its 'category' already exists in the 'GroupedData' array. If it exists, update the 'sum_value' by adding the current row's 'value' and increment the 'count'. If the category does not exist, create a new 'GroupedData' record for it, initializing 'sum_value' with the current row's 'value' and 'count' with 1, then add it to the 'GroupedData' array.",
             "dependencies": [
+                4,
                 5
             ]
         },
         {
             "id": 7,
-            "description": "Display the generated bar chart.",
+            "description": "Initialize an empty array of 'MeanResult' records. Iterate through the populated 'GroupedData' array. For each 'GroupedData' record, calculate the 'mean_value' by dividing its 'sum_value' by its 'count'. Create a new 'MeanResult' record with the category and calculated mean, and add it to the 'MeanResult' array. Store this array in a variable named 'mean_results'.",
             "dependencies": [
+                3,
                 6
+            ]
+        },
+        {
+            "id": 8,
+            "description": "Call a 'plotBarChart' function, passing the 'mean_results' array. This function will generate and display a bar chart where each bar represents a category and its height corresponds to the calculated mean value.",
+            "dependencies": [
+                7
             ]
         }
     ],
-    "notes": "Assumes the CSV file exists at the given path and contains columns named 'category' and 'value'. Error handling for file not found or missing columns should be considered during implementation. The 'value' column is assumed to contain numerical data suitable for mean calculation."
+    "notes": "The 'category' column in the CSV is assumed to contain integer values for grouping. The 'value' column is assumed to contain float values for mean calculation. The 'loadCsv' and 'plotBarChart' functions are high-level abstractions for operations that would typically involve external libraries (like pandas for CSV reading and matplotlib for plotting) in a real-world context. In EXPlora-lang, these would be implemented as native functions or provided by a standard library. Error handling for file operations or missing columns is not explicitly detailed but would be crucial for a robust implementation."
 }

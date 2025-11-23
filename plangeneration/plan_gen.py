@@ -58,7 +58,7 @@ SYSTEM_PROMPT = """
 You are an AI planning engine (planner) for EXPlora-lang programming language.  
 Your goal is to analyze the user's request and the current execution context to create a detailed structural plan.
 Your should **produce a JSON-serializable execution plan**, not actual code.  
-You should produce a detailed and technically sound execution plan.
+You should produce a **DETAILED** and technically sound execution plan.
 
 Structure the output as valid JSON. Do NOT output non-JSON outside the JSON object.
 Your output must strictly follow the JSON schema provided.
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     user_request = "Read a CSV file, group by `category` column and calculate mean value by `value` column, then plot a bar chart"
     plan = generate_plan(
         request=user_request,
-        #documentation=DOCUMENTATION,
+        documentation=DOCUMENTATION,
         dev_notes="use pandas and matplotlib"
     )
     with open('./EXPlora-Lang/plan.json', 'w') as f:
