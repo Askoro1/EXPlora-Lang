@@ -1,65 +1,84 @@
 {
-    "problem": "Read a CSV file, group data by the 'category' column, calculate the mean of the 'value' column for each group, and then visualize the results as a bar chart.",
+    "problem": "Read a CSV file, group data by a specified 'category' column, calculate the mean of a 'value' column for each group, and then visualize the results as a bar chart.",
     "data_requirements": [
         {
             "name": "csv_file_path",
             "type": "string",
-            "description": "The file path to the input CSV data. The CSV is expected to contain at least 'category' and 'value' columns."
+            "description": "The file path to the input CSV data."
+        },
+        {
+            "name": "category_column_name",
+            "type": "string",
+            "description": "The name of the column to use for grouping."
+        },
+        {
+            "name": "value_column_name",
+            "type": "string",
+            "description": "The name of the column whose mean value will be calculated for each group."
         }
     ],
     "steps": [
         {
             "id": 1,
-            "description": "Define a 'Record' type named 'CsvRow' with fields 'category' (int) and 'value' (float) to represent the structure of a single row from the input CSV file.",
+            "description": "Define a Record type to represent a single row of the CSV data, including fields for 'category' (String) and 'value' (float), and potentially other columns as needed.",
             "dependencies": []
         },
         {
             "id": 2,
-            "description": "Define a 'Record' type named 'GroupedData' with fields 'category' (int), 'sum_value' (float), and 'count' (int). This record will be used to store intermediate sums and counts for each category during the aggregation process.",
-            "dependencies": []
-        },
-        {
-            "id": 3,
-            "description": "Define a 'Record' type named 'MeanResult' with fields 'category' (int) and 'mean_value' (float). This record will store the final calculated mean for each category.",
-            "dependencies": []
-        },
-        {
-            "id": 4,
-            "description": "Call a 'loadCsv' function, passing the 'csv_file_path'. This function will read the CSV file, parse its contents, and return an array of 'CsvRow' records. Store the result in a variable named 'csv_data'.",
+            "description": "Call a hypothetical 'read_csv' function, passing the 'csv_file_path'. This function is expected to parse the CSV and return an array of the Row Record type defined in step 1.",
             "dependencies": [
                 1
             ]
         },
         {
-            "id": 5,
-            "description": "Initialize an empty array of 'GroupedData' records. This array will serve as the primary data structure for accumulating sums and counts for each category.",
+            "id": 3,
+            "description": "Initialize a data structure (e.g., an array of a new Record type like 'GroupAccumulator { category: String, sum_value: float, count: int }') to store intermediate sums and counts for each unique category.",
             "dependencies": [
                 2
             ]
         },
         {
-            "id": 6,
-            "description": "Iterate through each 'CsvRow' in the 'csv_data' array. For each row, check if its 'category' already exists in the 'GroupedData' array. If it exists, update the 'sum_value' by adding the current row's 'value' and increment the 'count'. If the category does not exist, create a new 'GroupedData' record for it, initializing 'sum_value' with the current row's 'value' and 'count' with 1, then add it to the 'GroupedData' array.",
+            "id": 4,
+            "description": "Iterate through the array of Row Records obtained from the CSV. For each row, extract its 'category' and 'value'.",
             "dependencies": [
-                4,
+                3
+            ]
+        },
+        {
+            "id": 5,
+            "description": "Inside the iteration, check if the current 'category' already exists in the 'GroupAccumulator' array. If it does, update the 'sum_value' by adding the current row's 'value' and increment the 'count'. If not, create a new 'GroupAccumulator' entry for this category, initializing 'sum_value' with the current row's 'value' and 'count' to 1.",
+            "dependencies": [
+                4
+            ]
+        },
+        {
+            "id": 6,
+            "description": "Initialize a new data structure (e.g., an array of 'PlotData { label: String, mean: float }') to store the final calculated means.",
+            "dependencies": [
                 5
             ]
         },
         {
             "id": 7,
-            "description": "Initialize an empty array of 'MeanResult' records. Iterate through the populated 'GroupedData' array. For each 'GroupedData' record, calculate the 'mean_value' by dividing its 'sum_value' by its 'count'. Create a new 'MeanResult' record with the category and calculated mean, and add it to the 'MeanResult' array. Store this array in a variable named 'mean_results'.",
+            "description": "Iterate through the 'GroupAccumulator' array. For each entry, calculate the mean by dividing 'sum_value' by 'count'. Store the 'category' as 'label' and the calculated mean as 'mean' in the 'PlotData' array.",
             "dependencies": [
-                3,
                 6
             ]
         },
         {
             "id": 8,
-            "description": "Call a 'plotBarChart' function, passing the 'mean_results' array. This function will generate and display a bar chart where each bar represents a category and its height corresponds to the calculated mean value.",
+            "description": "Create two separate arrays: one for the bar chart labels (String[]) by extracting all 'label' fields from the 'PlotData' array, and another for the bar chart values (float[]) by extracting all 'mean' fields from the 'PlotData' array.",
             "dependencies": [
                 7
             ]
+        },
+        {
+            "id": 9,
+            "description": "Call a hypothetical 'plot_bar_chart' function, passing the array of labels and the array of mean values as arguments to generate the visualization.",
+            "dependencies": [
+                8
+            ]
         }
     ],
-    "notes": "The 'category' column in the CSV is assumed to contain integer values for grouping. The 'value' column is assumed to contain float values for mean calculation. The 'loadCsv' and 'plotBarChart' functions are high-level abstractions for operations that would typically involve external libraries (like pandas for CSV reading and matplotlib for plotting) in a real-world context. In EXPlora-lang, these would be implemented as native functions or provided by a standard library. Error handling for file operations or missing columns is not explicitly detailed but would be crucial for a robust implementation."
+    "notes": "This plan assumes the existence of hypothetical `read_csv` and `plot_bar_chart` functions within the EXPlora-lang environment, as direct CSV parsing and plotting are not part of the core language specification. The plan also assumes that the 'category' column contains String values and the 'value' column contains numerical (float) values. Error handling for file not found or malformed CSV is not included in this high-level plan."
 }

@@ -58,7 +58,7 @@ SYSTEM_PROMPT = """
 You are an AI planning engine (planner) for EXPlora-lang programming language.  
 Your goal is to analyze the user's request and the current execution context to create a detailed structural plan.
 Your should **produce a JSON-serializable execution plan**, not actual code.  
-You should produce a **DETAILED** and technically sound execution plan.
+You should produce a detailed and technically sound execution plan.
 
 Structure the output as valid JSON. Do NOT output non-JSON outside the JSON object.
 Your output must strictly follow the JSON schema provided.
@@ -66,8 +66,8 @@ Your output must strictly follow the JSON schema provided.
 Here are the rules for the plan itself:
 - Do not write code.
 - Produce a structured reasoning plan describing how code SHOULD be written.
-- The plan must be explicit and actionable enough that another model can later implement it into code.
-- Be concrete, technical, and avoid hand-wavy theoretical descriptions.
+- The plan must be **explicit** and actionable enough that another model can later implement it into code.
+- Be **concrete**, **technical**, and **avoid hand-wavy theoretical descriptions**. Describe the steps **concisely**.
 
 Here are the rules for the JSON:
 
@@ -77,10 +77,9 @@ Here are the rules for the JSON:
    - `problem`: description of what to do (string).  
    - `data_requirements`: list of required data or inputs (array of objects).  
    - `steps`: a list of plan steps (array), each step is an object with:
-     - `id`: unique identifier (e.g. integer or string).  
+     - `id`: unique identifier (integer).  
      - `description`: what this step does (string).  
      - `dependencies`: list of ids of steps that must come before (can be empty).  
-   - `structure`: describes the code structure (object), e.g. which functions/modules to create.  
    - `notes`: optional extra notes (string or array), e.g. edge cases or assumptions.
 
 3. Do NOT include any code snippets in the JSON, only plan in natural language (in the description fields).
@@ -159,7 +158,7 @@ if __name__ == "__main__":
     plan = generate_plan(
         request=user_request,
         documentation=DOCUMENTATION,
-        dev_notes="use pandas and matplotlib"
+        #dev_notes="use pandas and matplotlib"
     )
     with open('./EXPlora-Lang/plan.json', 'w') as f:
         json.dump(plan, f, indent=4, ensure_ascii=False)
