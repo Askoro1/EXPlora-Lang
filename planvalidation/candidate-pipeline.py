@@ -1,10 +1,13 @@
-from plan_validation import validate_plan_json
 from datetime import datetime, timezone
 import tempfile
 import subprocess
 import uuid
 import json
 import os
+
+from ..plangeneration.plan_gen import generate_plan
+from ..planvalidation.plan_validation import validate_plan_json
+from ..codegeneration.code_gen import generate_explora_code
 
 MAX_RETRIES = 10  # LLM will retry generating the plan this many times
 LOG_FILE = "plan_runs.jsonl"  # one JSON per line
@@ -69,10 +72,9 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
     judge_feedback = None  # This gets used later if the plan fails validation
 
     for attempt in range(1, MAX_RETRIES + 1):
-        # Generate the plan (stub for now)
-        # plan_str should be a JSON string
-        # plan_str could come from "generate_plan(prompt, context, judge_feedback)"
-        plan_str = "{}"  # placeholder
+        # Generate the plan
+        plan_dict = generate_plan(prompt, current_func_context=str(context), program_context=str(context))
+        plan_str = json.dumps(plan_dict)
 
         # Validate the plan
         ok, errors, plan_result = validate_plan_json(plan_str)
@@ -96,9 +98,12 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
             )
             print("Plan was valid.")
 
-            # TODO: Code generation goes here
+            # Code generation
+            code = generate_explora_code(plan_result)
+            print("\n--- Generated EXPlora Code ---\n")
+            print(code)
 
-            return plan_result
+            return {"plan": plan_result, "code": code}
 
         # Otherwise it means the plan was invalid
         error_msg = "; ".join(errors or ["unknown validation error"])
@@ -123,6 +128,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                     )
 
                 ok2, errors2, plan_result2 = validate_plan_json(edited_plan)
+
                 if ok2 and plan_result2 is not None:
                     log_plan_attempt(
                         run_id=run_id,
@@ -134,9 +140,12 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                     )
                     print("Plan became valid after manual correction.")
 
-                    # TODO: Code generation goes here
+                    # Code generation
+                    code = generate_explora_code(plan_result2)
+                    print("\n--- Generated EXPlora Code ---\n")
+                    print(code)
 
-                    return plan_result2
+                    return {"plan": plan_result2, "code": code}
 
                 # if still invalid, update state and loop again
                 error_msg = "; ".join(errors2 or ["unknown validation error"])
