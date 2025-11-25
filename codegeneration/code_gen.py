@@ -1,6 +1,8 @@
 import os
 import json
 from typing import Dict, Any
+from pathlib import Path
+
 from google import genai
 from google.genai import types
 
@@ -18,9 +20,10 @@ def generate_explora_code(plan: Dict[str, Any]) -> str:
     Send the validated plan to the Gemini API and receive generated EXPlora-Lang code.
     """
 
-    plan_json = json.dumps(plan, indent=2)
+    plan_json = json.dumps(plan, indent=2, ensure_ascii=False)
 
-    with open("DOCUMENTATION.txt", "r", encoding="utf-8") as f:
+    doc_path = Path(__file__).resolve().parent.parent / "DOCUMENTATION.txt"
+    with open(doc_path, "r", encoding="utf-8") as f:
         documentation = f.read()
 
     prompt = f"""
@@ -47,7 +50,7 @@ def generate_explora_code(plan: Dict[str, Any]) -> str:
 
     # response is a `GenerateContentResponse`
     # `parts` may be a list of content parts, but `.text` gives the full text
-    return response.text.strip()
+    return (response.text or "").strip()
 
 
 # ---------------- EXAMPLE USAGE ---------------- #

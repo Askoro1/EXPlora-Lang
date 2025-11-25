@@ -2,6 +2,7 @@ import os
 import json
 from google import genai
 from google.genai import types
+from pathlib import Path
 
 MODEL_ID = "gemini-2.5-flash"
 
@@ -112,7 +113,9 @@ Context:
 Please output the plan as a JSON object conforming to the structure described in the system prompt.
 """
 
-with open("./EXPlora-Lang/DOCUMENTATION.txt", "r") as documentation_file:
+_DOC_PATH = Path(__file__).resolve().parent.parent / "DOCUMENTATION.txt"
+
+with open(_DOC_PATH, "r", encoding="utf-8") as documentation_file:
     DOCUMENTATION = documentation_file.read()
 
 
