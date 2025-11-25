@@ -14,7 +14,7 @@ def main() -> None:
 
     This script assumes that:
     - google-genai is installed,
-    - GEMINI_API_KEY is set in the environment,
+    - GEMINI_API is set in the environment,
     - plan_gen, plan_judge and code_gen are configured to use Gemini.
     """
 

@@ -71,9 +71,9 @@ def _call_gemini_judge(plan_json: str, errors: List[str]) -> str:
     str
         Feedback text to be presented to the planner.
     """
-    api_key = os.environ.get("AIzaSyBrTLl0vgTDdslk4e0NP4169Y6JL54zi_0")
+    api_key = os.environ.get("GEMINI_API")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+        raise RuntimeError("GEMINI_API environment variable is not set")
     # Initialise the client lazily to avoid import errors if google.genai
     # is unavailable at runtime.
     client = genai.Client(api_key=api_key)
