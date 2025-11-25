@@ -6,6 +6,7 @@ import json
 import os
 
 from ..plangeneration.plan_gen import generate_plan
+from ..plangeneration.plan_judge import generate_judge_feedback
 from ..planvalidation.plan_validation import validate_plan_json
 from ..codegeneration.code_gen import generate_explora_code
 
@@ -19,6 +20,22 @@ def manual_edit(original_plan: str, errors: list[str]) -> str | None:
     After the user modifies the plan, the temp file is closed and the new plan is validated.
     """
     print("Plan is invalid. Opening it for manual correction...")
+
+    # Display the original plan and validation errors in a readable form
+    # to assist the user in understanding what needs to be fixed.  If
+    # the plan parses as JSON we pretty‑print it; otherwise we show it
+    # verbatim.
+    try:
+        parsed_plan = json.loads(original_plan)
+        pretty_plan = json.dumps(parsed_plan, indent=4, ensure_ascii=False)
+    except Exception:
+        pretty_plan = original_plan
+    print("\n=== Current Plan ===")
+    print(pretty_plan)
+    if errors:
+        print("\n=== Validation Errors ===")
+        for e in errors:
+            print(f" - {e}")
 
     with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json") as tmp:
         tmp_path = tmp.name
@@ -72,8 +89,18 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
     judge_feedback = None  # This gets used later if the plan fails validation
 
     for attempt in range(1, MAX_RETRIES + 1):
-        # Generate the plan
-        plan_dict = generate_plan(prompt, current_func_context=str(context), program_context=str(context))
+        # Generate the plan.  On subsequent attempts, if the previous plan
+        # failed validation the judge may have provided feedback stored
+        # in `judge_feedback`.  We pass this into the `dev_notes`
+        # argument of `generate_plan` to guide the planner towards a
+        # corrected plan.  When `judge_feedback` is None or empty, an
+        # empty string is passed.
+        plan_dict = generate_plan(
+            request=prompt,
+            current_func_context=str(context),
+            program_context=str(context),
+            dev_notes=judge_feedback or "",
+        )
         plan_str = json.dumps(plan_dict)
 
         # Validate the plan
@@ -152,7 +179,10 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                 errors = errors2
                 plan_str = edited_plan
         else:
-            # Auto-retry path (LLM judge + generator) - skeleton
+            # Auto-retry path (LLM judge + generator).  Log the invalid
+            # plan and call the judge to obtain feedback.  The feedback
+            # will be used in the next iteration via the `dev_notes`
+            # parameter of `generate_plan`.
             log_plan_attempt(
                 run_id=run_id,
                 attempt=attempt,
@@ -164,10 +194,24 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
                 judge_name=judge_name,
             )
             print("Plan was invalid : LLM Check.")
-            # TODO: call judge LLM here and update judge_feedback for next attempt
-            judge_feedback = error_msg
 
-            # This part will be similar to the manual check
+            # Attempt to get feedback from the judge.  If the judge
+            # fails (e.g. due to missing API keys) we fall back to
+            # using the error message itself as guidance.
+            try:
+                judge_feedback = generate_judge_feedback(plan_str, errors or [])
+            except Exception as e:
+                judge_feedback = error_msg
+                print(f"Judge call failed: {e}. Falling back to error message.")
+
+            # Print the judge's feedback so the user can see what is
+            # guiding the next generation step.
+            print("\n=== Judge Feedback ===")
+            print(judge_feedback)
+
+            # Continue to next attempt (loop), which will regenerate the
+            # plan with the feedback provided.  No further action is
+            # needed here.
 
     # If we get here, no valid plan after all retries
     raise RuntimeError(
