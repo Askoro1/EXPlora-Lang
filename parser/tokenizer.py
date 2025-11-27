@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List
 
+
 # ------------------------
 # Token Types
 # ------------------------
@@ -20,6 +21,7 @@ class TokenType(Enum):
     # End of file
     EOF = auto()
 
+
 @dataclass
 class Token:
     type: TokenType
@@ -29,21 +31,22 @@ class Token:
     def __repr__(self):
         return f"Token({self.type.name}, {self.value!r}, pos={self.pos})"
 
+
 # ------------------------
 # Token patterns
 # ------------------------
 TOKEN_SPEC = [
     ("WHITESPACE", r"[ \t\n\r]+"),
-    ("COMMENT",    r"//[^\n]*"),
-    ("MCOMMENT",   r"/\*.*?\*/"),
-    ("NUMBER",     r"\d+(\.\d+)?([eE][+-]?\d+)?"),
-    ("CHAR",       r"'(\\.|[^\\'])'"),
-    ("STRING",     r"\"(\\.|[^\"])*\""),
-    ("ID",         r"[A-Za-z_][A-Za-z0-9_]*"),
+    ("COMMENT", r"//[^\n]*"),
+    ("MCOMMENT", r"/\*.*?\*/"),
+    ("NUMBER", r"\d+(\.\d+)?([eE][+-]?\d+)?"),
+    ("CHAR", r"'(\\.|[^\\'])'"),
+    ("STRING", r"\"(\\.|[^\"])*\""),
+    ("ID", r"[A-Za-z_][A-Za-z0-9_]*"),
     # Multi-char operators
-    ("OP",         r"==|!=|<=|>=|\+\+|--|\+=|-=|\*=|/=|&&|\|\||<<|>>|->|=>"),
+    ("OP", r"==|!=|<=|>=|\+\+|--|\+=|-=|\*=|/=|&&|\|\||<<|>>|->|=>"),
     # Single-character operators & punctuation
-    ("SINGLE",     r"[+\-*/%<>=!&|^~\[\]\(\)\{\},;.:]"),
+    ("SINGLE", r"[+\-*/%<>=!&|^~\[\]\(\)\{\},;.:]"),
 ]
 
 MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TOKEN_SPEC), re.S)
@@ -52,11 +55,12 @@ MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in TO
 # Keywords
 # ------------------------
 KEYWORDS = {
-    "int", "float", "char", "bool", "unit", "auto",
+    "int", "float", "char", "bool", "unit", "auto", "string",
     "if", "else", "while", "for", "return",
     "true", "false", "sizeof",
     "Record"
 }
+
 
 # ------------------------
 # Tokenizer
@@ -98,6 +102,7 @@ def tokenize(code: str) -> List[Token]:
     tokens.append(Token(TokenType.EOF, "", len(code)))
     return tokens
 
+
 # ------------------------
 # Example usage
 # ------------------------
@@ -106,18 +111,20 @@ if __name__ == "__main__":
     int main() {
         int x = 42;
         float y = 3.14;
-        
+        char c = 'a';
+        string s = "Hello, world!";
+
         Record Point { x, y } 
         Point p = Point(1, 2);
-        
+
         auto f = [](int x, int y) -> int {
             return x + y;
         };
-        
+
         Point p = Point { x: 1, y: 2 };
-        
+
         int arr[2][2] = {{1, 2}, {3, 4}};
-        
+
         if (x < y) {
             x = x + 1;
         } else {

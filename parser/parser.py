@@ -122,7 +122,7 @@ class Parser:
 
     def parse_type(self):
         t = self.peek()
-        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}:
+        if t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto", "string"}:
             self.next()
             base = PrimitiveType(t.value)
         elif t.type == TokenType.ID:
@@ -214,7 +214,7 @@ class Parser:
             return DeclStmt(declaration=decl)
 
         # Variable declarations
-        if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto"}) \
+        if (t.type == TokenType.KW and t.value in {"int", "float", "bool", "char", "unit", "auto", "string"}) \
                 or (t.type == TokenType.ID):
             # Look ahead to see if this is a declaration
             i = self.pos + 1
@@ -330,11 +330,15 @@ class Parser:
 
         elif tok.type == TokenType.STRING:
             self.next()
-            return PrimitiveLiteral(ord(tok.value[1:-1]))
+            inner = tok.value[1:-1]
+            value = bytes(inner, "utf-8").decode("unicode_escape")
+            return StringLiteral(value=value)
 
         elif tok.type == TokenType.CHAR:
             self.next()
-            return PrimitiveLiteral(ord(tok.value[1:-1]))
+            inner = tok.value[1:-1]
+            value = bytes(inner, "utf-8").decode("unicode_escape")
+            return PrimitiveLiteral(value)
 
         elif tok.type == TokenType.KW and tok.value in {"true", "false"}:
             self.next()
@@ -435,6 +439,9 @@ if __name__ == "__main__":
     int main() {
         int x = 10;
         float y = 3.14;
+        char c = 'a';
+        string s = "Hello, world!";
+        
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
         int f = [](int x, int y) { return x + y; };
