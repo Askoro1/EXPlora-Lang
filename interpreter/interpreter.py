@@ -1,4 +1,7 @@
 from typing import Any, Dict, List, Tuple
+
+from numpy import ndarray
+
 from ast_nodes import *
 from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
 from builtins_ import BUILTINS
@@ -583,7 +586,18 @@ class Interpreter:
                 rec_rv.value[node.lvalue.field_name] = r.value
                 return None
 
-            raise RuntimeTypeError("Unsupported lvalue in Assignment")
+            # --- OperatorCall("[]", ...): assign to array element ---
+            elif isinstance(node.lvalue, OperatorCall) and node.lvalue.operator == "[]":
+                # Evaluate base recursively until we reach the final container
+                container = self.eval_expression(node.lvalue.operands[0], frame)
+                index = self.eval_expression(node.lvalue.operands[1], frame)
+                if not isinstance(container.value, ndarray):
+                    raise RuntimeTypeError("Assignment to index on non-array")
+                container.value[index.value] = r.value
+                return None
+
+            else:
+                raise RuntimeTypeError("Unsupported lvalue in Assignment")
 
         if isinstance(node, WhileLoop):
             while True:

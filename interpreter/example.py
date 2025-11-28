@@ -36,60 +36,69 @@ from ..parser.parser import Parser
 #
 # prog = Program(declarations=[main_fn])
 
+# code = r"""
+#     int add(int a, int b) {
+#         return a + b;
+#     }
+#
+#     Record Point { x: int, y: int }
+#
+#     int main() {
+#         int x = 10;
+#         float y = 3.14;
+#         char c = 'a';
+#         string s = "Hello, world!";
+#
+#         Point p = Point(1, 2);
+#         p.x = 10;
+#
+#         bool flag = true;
+#         int[2][2] arr = {{1, 2}, {3, 4}};
+#         arr[0][0] = 1000;
+#         int f = [](int x, int y) { return x + y; };
+#
+#         int[4][2] arr = {
+#             {1, 2},
+#             {3, 4},
+#             {5, 6},
+#             {7, 8}
+#         };
+#
+#         float[2][2][2] cube = {
+#             {
+#                 {1.0, 2.0},
+#                 {3.0, 4.0}
+#             },
+#             {
+#                 {5.0, 6.0},
+#                 {7.0, 8.0}
+#             }
+#         };
+#
+#         cube = cube + 10;
+#
+#         if (x < y) {
+#             x = x + 1;
+#         } else {
+#             x = x - 1;
+#         }
+#
+#         while (x < 20) {
+#             x = x + 2;
+#         }
+#
+#         int result = add(x, 5);
+#         return arr[0][0];
+#     }
+#     """
+
 code = r"""
-    int add(int a, int b) {
-        return a + b;
-    }
-    
-    Record Point { x: int, y: int }
-
     int main() {
-        int x = 10;
-        float y = 3.14;
-        char c = 'a';
-        string s = "Hello, world!";
-        
-        Point p = Point(1, 2);
-        p.x = 10;
-
-        bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
-        int f = [](int x, int y) { return x + y; };
-
-        int[4][2] arr = {
-            {1, 2},
-            {3, 4},
-            {5, 6},
-            {7, 8}
-        };
-
-        float[2][2][2] cube = {
-            {
-                {1.0, 2.0},
-                {3.0, 4.0}
-            },
-            {
-                {5.0, 6.0},
-                {7.0, 8.0}
-            }
-        };
-        
-        cube = cube + 10;
-
-        if (x < y) {
-            x = x + 1;
-        } else {
-            x = x - 1;
-        }
-
-        while (x < 20) {
-            x = x + 2;
-        }
-
-        int result = add(x, 5);
-        return result;
+        arr[0][0] = 1000;
+        return arr[0][0];
     }
-    """
+"""
 
 # Tokenize
 tokens = tokenize(code)

@@ -352,6 +352,7 @@ class Parser:
                 return self.parse_record_literal(tok.value)
             # Function calls and indexing
             while True:
+                # Function call: f(...)
                 if self.accept(TokenType.OP, "("):
                     args = []
                     if not self.accept(TokenType.OP, ")"):
@@ -375,12 +376,26 @@ class Parser:
                         node = FunctionCall(function=node, arguments=args)
                     continue
 
+                # ---------------------------
+                # Field access: p.x , a.b.c
+                # ---------------------------
                 if self.accept(TokenType.OP, "."):
                     field_tok = self.expect(TokenType.ID)
                     node = FieldRef(
                         record=node,
                         field_name=field_tok.value
                     )
+                    continue
+
+                # ---------------------------
+                # Array indexing: a[expr], arr[0][0], (expr)[i]
+                # ---------------------------
+                if self.accept(TokenType.OP, "["):
+                    # parse index expression
+                    index_expr = self.parse_expression()
+                    self.expect(TokenType.OP, "]")
+                    # represent indexing as OperatorCall with operator "[]"
+                    node = OperatorCall(operator="[]", operands=[node, index_expr])
                     continue
 
                 break
