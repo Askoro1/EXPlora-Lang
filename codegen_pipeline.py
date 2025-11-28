@@ -1,125 +1,104 @@
-import uuid
-<<<<<<<< HEAD:planvalidation/candidate_pipeline.py
+"""
+Pipeline for generating EXPlora‑Lang code from a natural language prompt.
+
+The ``codegen_pipeline`` function orchestrates plan generation, validation
+with optional manual correction, automatic critique via a judge model, and
+finally code generation.  Feedback from the judge can be passed back to
+the planner on subsequent attempts.
+
+This module relies on the ``GEMINI_API`` environment variable to access
+Gemini models for plan and code generation.  If the variable is unset the
+pipeline will raise a runtime error when invoked.
+"""
+
+from __future__ import annotations
+
 import json
-import os
+import uuid
+from typing import Any, Dict, Optional
 
-from ..plangeneration.plan_gen import generate_plan
-from ..plangeneration.plan_judge import generate_judge_feedback
-from ..planvalidation.plan_validation import validate_plan_json
-from ..codegeneration.code_gen import generate_explora_code
-========
 from .ai_gen_helpers.plan_gen import generate_plan
-from .ai_gen_helpers.plan_validation import *
+from .ai_gen_helpers.plan_validation import (
+    validate_plan_json,
+    manual_edit,
+    log_plan_attempt,
+)
 from .ai_gen_helpers.code_gen import generate_explora_code
-from .ai_gen_helpers.code_validation import generate_validated_code_from_plan
->>>>>>>> origin/main:codegen_pipeline.py
+from .ai_gen_helpers.judge import judge_plan
 
-MAX_RETRIES = 10  # LLM will retry generating the plan this many times
+# Allow up to this many retries when automatically regenerating a plan.
+MAX_RETRIES: int = 10
 
-<<<<<<<< HEAD:planvalidation/candidate_pipeline.py
-def manual_edit(original_plan: str, errors: list[str]) -> str | None:
+
+def codegen_pipeline(
+    prompt: str,
+    context: Any,
+    manual_check: bool = True,
+    *,
+    generator_name: str = "GENERATOR_MODEL",
+    judge_name: str = "JUDGE_MODEL",
+) -> Dict[str, Any]:
     """
-    Basic version for manual editing.
-    Opens a temp file, writes the errors and the plan in it.
-    After the user modifies the plan, the temp file is closed and the new plan is validated.
+    Generate EXPlora‑Lang code from a natural language ``prompt``.
+
+    Parameters
+    ----------
+    prompt : str
+        A natural language description of the task to perform.
+    context : Any
+        The current execution context (AST or source code).  This will be
+        converted to a string and provided to the planner as part of its
+        context.  If no context is available, pass ``None``.
+    manual_check : bool, optional
+        If ``True`` (default), invalid plans will be opened for manual editing
+        using the user's preferred editor.  If ``False``, invalid plans will
+        trigger an automatic loop where a judge LLM provides feedback to
+        improve the next planning attempt.
+    generator_name : str, optional
+        An identifier for the generator LLM used for logging.  Default is
+        ``"GENERATOR_MODEL"``.
+    judge_name : str, optional
+        An identifier for the judge LLM used for logging.  Default is
+        ``"JUDGE_MODEL"``.
+
+    Returns
+    -------
+    dict
+        A dictionary with two keys:
+
+        * ``"plan"`` – the validated plan as a Python ``dict``.
+        * ``"code"`` – the EXPlora‑Lang code as a string.
+
+    Raises
+    ------
+    RuntimeError
+        If no valid plan could be produced after ``MAX_RETRIES`` attempts.
     """
-    print("Plan is invalid. Opening it for manual correction...")
 
-    # Display the original plan and validation errors in a readable form
-    # to assist the user in understanding what needs to be fixed.  If
-    # the plan parses as JSON we pretty‑print it; otherwise we show it
-    # verbatim.
-    try:
-        parsed_plan = json.loads(original_plan)
-        pretty_plan = json.dumps(parsed_plan, indent=4, ensure_ascii=False)
-    except Exception:
-        pretty_plan = original_plan
-    print("\n=== Current Plan ===")
-    print(pretty_plan)
-    if errors:
-        print("\n=== Validation Errors ===")
-        for e in errors:
-            print(f" - {e}")
+    run_id: str = str(uuid.uuid4())
+    judge_feedback: Optional[str] = None
 
-    with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json") as tmp:
-        tmp_path = tmp.name
-
-        # Write the original plan first
-        tmp.write(original_plan)
-        tmp.write("\n\n")
-        tmp.write("// --- Validation errors (for your reference) ---\n")
-        for e in errors:
-            tmp.write(f"// {e}\n")
-
-    # Use PyCharm (or whatever EDITOR is set to)
-    editor = os.environ.get("EDITOR") or "pycharm64.exe"
-    subprocess.run([editor, tmp_path])
-
-    # Read edited file
-    with open(tmp_path, "r", encoding="utf-8") as f:
-        edited = f.readlines()
-
-    # Strip comment lines (starting with //) before returning to validator
-    cleaned_lines = [
-        line for line in edited
-        if not line.lstrip().startswith("//")
-    ]
-    cleaned = "".join(cleaned_lines)
-
-    return cleaned
-
-def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan_txt: str, mode: str, generator_name: str = "GENERATOR_NOT_SET", judge_name: str = "JUDGE_NOT_SET", ) -> None:
-    """
-    Logs the attempt with relevant information.
-    """
-    entry = {
-        "run_id": run_id,
-        "attempt": attempt,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "generator": generator_name,
-        "judge": judge_name,
-        "validity": validity,
-        "reason": reason,
-        "plan": plan_txt,
-        "mode": mode,
-    }
-
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry))
-        f.write("\n")
-
-def run_pipeline(prompt: str, context, manual_check: bool = False, generator_name: str = "GENERATOR_MODEL", judge_name: str = "JUDGE_MODEL",):
-========
-def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_name: str = "GENERATOR_MODEL", judge_name: str = "JUDGE_MODEL",):
->>>>>>>> origin/main:codegen_pipeline.py
-    run_id = str(uuid.uuid4())
-    judge_feedback = None  # This gets used later if the plan fails validation
+    # Prepare string representations of the context once up front to avoid
+    # repeating conversions inside the loop.
+    context_str = "" if context is None else str(context)
 
     for attempt in range(1, MAX_RETRIES + 1):
-        # Generate the plan.  On subsequent attempts, if the previous plan
-        # failed validation the judge may have provided feedback stored
-        # in `judge_feedback`.  We pass this into the `dev_notes`
-        # argument of `generate_plan` to guide the planner towards a
-        # corrected plan.  When `judge_feedback` is None or empty, an
-        # empty string is passed.
+        # Step 1: Generate a plan.  Pass any judge feedback from previous
+        # invalid attempt so the planner can incorporate it.
         plan_dict = generate_plan(
-            request=prompt,
-            current_func_context=str(context),
-            program_context=str(context),
-            dev_notes=judge_feedback or "",
+            prompt,
+            current_func_context=context_str,
+            program_context=context_str,
+            judge_feedback=judge_feedback,
         )
         plan_str = json.dumps(plan_dict)
 
-        # Validate the plan
+        # Step 2: Validate the plan
         ok, errors, plan_result = validate_plan_json(plan_str)
+        mode = "MANUAL" if manual_check else "LLM"
 
-        if manual_check:
-            mode = "MANUAL"
-        else:
-            mode = "LLM"
-
-        # If there's a valid plan
         if ok and plan_result is not None:
+            # Successful plan
             log_plan_attempt(
                 run_id=run_id,
                 attempt=attempt,
@@ -130,20 +109,16 @@ def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_
                 generator_name=generator_name,
                 judge_name=judge_name,
             )
-            print("Plan was valid.")
-
-            # Code generation
+            # Generate code based on the valid plan
             code = generate_explora_code(plan_result)
-            print("\n--- Generated EXPlora Code ---\n")
-            print(code)
-
             return {"plan": plan_result, "code": code}
 
-        # Otherwise it means the plan was invalid
+        # If we reach here, the plan was invalid
         error_msg = "; ".join(errors or ["unknown validation error"])
 
         if manual_check:
-            # Manual correction loop: keep editing until valid or user cancels
+            # In manual mode, allow the user to iteratively fix the plan until
+            # it passes validation or the user cancels.
             while True:
                 log_plan_attempt(
                     run_id=run_id,
@@ -152,17 +127,16 @@ def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_
                     reason=error_msg,
                     plan_txt=plan_str,
                     mode=mode,
+                    generator_name=generator_name,
+                    judge_name=judge_name,
                 )
                 print("Plan was invalid : Manual Check.")
-
                 edited_plan = manual_edit(plan_str, errors or [])
                 if edited_plan is None:
                     raise RuntimeError(
                         f"No valid plan and manual edit cancelled (run_id={run_id})."
                     )
-
                 ok2, errors2, plan_result2 = validate_plan_json(edited_plan)
-
                 if ok2 and plan_result2 is not None:
                     log_plan_attempt(
                         run_id=run_id,
@@ -171,25 +145,18 @@ def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_
                         reason="manual correction",
                         plan_txt=edited_plan,
                         mode=mode,
+                        generator_name=generator_name,
+                        judge_name=judge_name,
                     )
-                    print("Plan became valid after manual correction.")
-
-                    # Code generation
                     code = generate_explora_code(plan_result2)
-                    print("\n--- Generated EXPlora Code ---\n")
-                    print(code)
-
                     return {"plan": plan_result2, "code": code}
-
-                # if still invalid, update state and loop again
+                # otherwise update state and loop again
                 error_msg = "; ".join(errors2 or ["unknown validation error"])
                 errors = errors2[:]
                 plan_str = edited_plan
         else:
-            # Auto-retry path (LLM judge + generator).  Log the invalid
-            # plan and call the judge to obtain feedback.  The feedback
-            # will be used in the next iteration via the `dev_notes`
-            # parameter of `generate_plan`.
+            # In automatic mode, call the judge LLM to get feedback that will be
+            # fed back into the next planning iteration.
             log_plan_attempt(
                 run_id=run_id,
                 attempt=attempt,
@@ -201,31 +168,38 @@ def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_
                 judge_name=judge_name,
             )
             print("Plan was invalid : LLM Check.")
-
-            # Attempt to get feedback from the judge.  If the judge
-            # fails (e.g. due to missing API keys) we fall back to
-            # using the error message itself as guidance.
             try:
-                judge_feedback = generate_judge_feedback(plan_str, errors or [])
-            except Exception as e:
+                # Ask the judge to critique the invalid plan.  We include the
+                # original prompt for additional context so the judge can
+                # recommend how to improve the plan.
+                judge_feedback = judge_plan(
+                    plan_str,
+                    error_msg,
+                    prompt,
+                )
+            except Exception as exc:
+                # If the judge fails for any reason, fall back to using the
+                # error message itself as feedback.  This ensures that the
+                # planner will at least be informed of what went wrong.
+                print(f"Judge call failed: {exc}. Falling back to error message.")
                 judge_feedback = error_msg
-                print(f"Judge call failed: {e}. Falling back to error message.")
+            # continue to next iteration; judge_feedback will be passed to generate_plan
+            continue
 
-            # Print the judge's feedback so the user can see what is
-            # guiding the next generation step.
-            print("\n=== Judge Feedback ===")
-            print(judge_feedback)
-
-            # Continue to next attempt (loop), which will regenerate the
-            # plan with the feedback provided.  No further action is
-            # needed here.
-
-    # If we get here, no valid plan after all retries
+    # If loop completes without returning, no valid plan was found
     raise RuntimeError(
         f"No valid plan found after {MAX_RETRIES} attempts (run_id={run_id})."
     )
 
 
 if __name__ == "__main__":
-    user_request = "Read a CSV file, group by `category` column and calculate mean value by `value` column, then plot a bar chart"
-    codegen_pipeline(user_request, "None", manual_check=True, generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
+    # Basic manual test harness.  When run as a script, this will prompt the
+    # user for a request and execute the pipeline in manual mode.  It is
+    # primarily intended for debugging rather than production use.
+    example_request = (
+        "Read a CSV file, group by `category` column and calculate the mean value "
+        "of the `value` column, then plot a bar chart."
+    )
+    res = codegen_pipeline(example_request, context=None, manual_check=True)
+    print("\n--- Plan ---\n", json.dumps(res["plan"], indent=2))
+    print("\n--- Code ---\n", res["code"])
