@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Tuple
 from ..ast_nodes import *
-from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
-from builtins_ import BUILTINS
+from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
+from .builtins_ import BUILTINS
 
 
 class Frame:
