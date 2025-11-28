@@ -118,6 +118,9 @@ class PrettyPrinter:
             else:
                 return str(node.value)
 
+        elif isinstance(node, StringLiteral):
+            return f'"{node.value}"'
+
         elif isinstance(node, ArrayLiteral):
             if all(isinstance(v, ArrayLiteral) for v in node.value):
                 s = "{\n"
@@ -151,6 +154,9 @@ class PrettyPrinter:
                 s += "[]" * node.dimension
             return s
 
+        elif isinstance(node, FieldRef):
+            return f"{self.pprint(node.record)}.{node.field_name}"
+
         else:
             raise ValueError(f"Unknown AST node type: {type(node).__name__}")
 
@@ -173,8 +179,9 @@ if __name__ == '__main__':
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
         int f = [](int x, int y) { return x + y; };
-    
+        
         Point p = Point(1, 2);
+        p.x = 10;
         
         int[4][2] arr = {
             {1, 2},
@@ -205,7 +212,7 @@ if __name__ == '__main__':
         }
 
         int result = add(x, 5);
-        return result;
+        return result + p.x;
     }
     """
 

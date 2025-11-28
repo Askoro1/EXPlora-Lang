@@ -43,13 +43,14 @@ code = r"""
     
     Record Point { x: int, y: int }
 
-    string main() {
+    int main() {
         int x = 10;
         float y = 3.14;
         char c = 'a';
         string s = "Hello, world!";
         
         Point p = Point(1, 2);
+        p.x = 10;
 
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
@@ -86,7 +87,7 @@ code = r"""
         }
 
         int result = add(x, 5);
-        return s;
+        return result;
     }
     """
 

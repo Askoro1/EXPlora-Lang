@@ -374,6 +374,15 @@ class Parser:
                     else:
                         node = FunctionCall(function=node, arguments=args)
                     continue
+
+                if self.accept(TokenType.OP, "."):
+                    field_tok = self.expect(TokenType.ID)
+                    node = FieldRef(
+                        record=node,
+                        field_name=field_tok.value
+                    )
+                    continue
+
                 break
             return node
 
@@ -447,6 +456,7 @@ if __name__ == "__main__":
         int f = [](int x, int y) { return x + y; };
         
         Point p = Point(1, 2);
+        p.x = 10;
         
         int[4][2] arr = {
             {1, 2},
@@ -477,7 +487,7 @@ if __name__ == "__main__":
         }
 
         int result = add(x, 5);
-        return result;
+        return result + p.x;
     }
     """
 
