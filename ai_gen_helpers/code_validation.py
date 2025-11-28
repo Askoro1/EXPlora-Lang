@@ -18,15 +18,12 @@ client = genai.Client(api_key=API_KEY)
 
 
 # ---------------- VALIDATION ---------------- #
-def validate_code(code: str, plan: Dict[str, Any]) -> Dict[str, Any]:
+def validate_code(code: str, plan: Dict[str, Any], documentation="None") -> Dict[str, Any]:
     plan_json = json.dumps(plan, indent=4)
 
-    with open("DOCUMENTATION.txt", "r", encoding="utf-8") as f:
-        documentation = f.read()
-
     prompt = f"""
-    You are an EXPlora-Lang validator.
-    Check the following EXPlora-Lang program for the execution of the provided plan and correctness according to the language rules.
+    You are an EXPlora-Lang programming language validator.
+    Check if the following EXPlora-Lang program represents the provided plan correctly, as well as if it follows the language rules and does NOT make any additional assumptions about them.
     
     Return a JSON object exactly in this format:
     
@@ -70,7 +67,7 @@ def validate_code(code: str, plan: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ---------------- REPAIR ---------------- #
-def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
+def repair_code(code: str, validation_errors: Dict[str, Any], documentation="None") -> str:
     """
     Repair EXPlora-Lang code using Gemini API based on validation errors.
     Returns only the corrected code (no explanations).
@@ -78,7 +75,10 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
     errors_json = json.dumps(validation_errors, indent=4)
 
     prompt = f"""
-    You are an EXPlora-Lang expert.
+    You are an EXPlora-Lang programming language expert.
+    
+    DOCUMENTATION:
+    {documentation}
     
     The following code contains errors:
     
@@ -105,17 +105,19 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
 
 
 # ---------------- MASTER PIPELINE ---------------- #
-def generate_validated_code_from_plan(plan: Dict[str, Any], max_attempts: int = 3) -> str:
+def generate_validated_code_from_plan(plan: Dict[str, Any], documentation="None", max_attempts: int = 3) -> str:
     """
     1. Generate EXPlora-Lang code from plan
     2. Validate with Gemini
     3. Auto-repair if needed
     """
-    code = generate_explora_code(plan)
-    code = ""
+    code = generate_explora_code(plan, documentation=documentation)
+
+    print("[Generation Result]")
+    print(code)
 
     for attempt in range(max_attempts):
-        result = validate_code(code, plan)
+        result = validate_code(code, plan, documentation=documentation)
 
         if result.get("valid", False):
             print(f"[Validation] Code is valid on attempt {attempt + 1}")
@@ -125,7 +127,10 @@ def generate_validated_code_from_plan(plan: Dict[str, Any], max_attempts: int = 
         print(json.dumps(result, indent=4))
 
         # Repair code
-        code = repair_code(code, result)
+        code = repair_code(code, result, documentation=documentation)
+
+        print("[Generation Result]")
+        print(code)
 
     raise RuntimeError(f"Unable to generate valid code after {max_attempts} attempts.")
 

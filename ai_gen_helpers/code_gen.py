@@ -13,20 +13,17 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-def generate_explora_code(plan: Dict[str, Any]) -> str:
+def generate_explora_code(plan: Dict[str, Any], documentation="None") -> str:
     """
     Send the validated plan to the Gemini API and receive generated EXPlora-Lang code.
     """
 
     plan_json = json.dumps(plan, indent=4)
 
-    with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r", encoding="utf-8") as f:
-        documentation = f.read()
-
     prompt = f"""
-    You are an EXPlora-Lang code generator.
+    You are an EXPlora-Lang programming language code generator.
     Convert the following validated execution plan into correct EXPlora-Lang code.
-    Only output code. Do NOT explain anything.
+    Only output code. Do NOT explain anything. If you write comments, do it only for the most **important parts**.
     
     Explora‑Lang Documentation:
     {documentation}

@@ -30,6 +30,8 @@ Primitive types:
     int
     float
     bool
+    char
+    string
 
 Composite types:
     T[N]                 → 1D array of size N
@@ -55,6 +57,8 @@ Variables are declared with explicit types:
     int x = 10;
     float y = 3.14;
     bool flag = true;
+    char c = 'a';
+    string s = "Hello, world!";
 
 Records:
 
@@ -88,7 +92,7 @@ Example:
         return a + b;
     }
 
-Functions must always end with `return` unless return type is void.
+Functions must always end with `return` unless return type is unit.
 
 
 ------------------------------------------------------------
@@ -221,6 +225,9 @@ Typical program:
         int x = 10;
         float y = 3.14;
 
+        char c = 'a';
+        string s = "Hello, world!";
+
         Point p = Point(1, 2);
 
         if (x < y) {
@@ -247,6 +254,7 @@ When generating EXPlora-Lang code:
 - Lambdas MUST return an expression.
 - Indentation must be 4 spaces.
 - Code must be syntactically valid with no missing braces.
+- Correct way of initializing an object of type 'string' or 'record' is as follows: `string smth = "Hello"`, - NOT as `string smth[5] = "Hello"`, NOT as `string[5] smth = "Hello"`
 
 
 ------------------------------------------------------------
