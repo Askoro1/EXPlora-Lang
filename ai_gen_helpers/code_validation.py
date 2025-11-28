@@ -4,29 +4,29 @@ from typing import Dict, Any
 from google import genai
 from google.genai import types
 
-from codegeneration.code_gen import generate_explora_code  # updated generator
+from .code_gen import generate_explora_code  # updated generator
 
 # ---------------- CONFIG ---------------- #
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # Read Gemini API key from environment
 API_KEY = os.environ.get("GEMINI_API")
 if not API_KEY:
-    raise RuntimeError("Please set GEMINI_API_KEY environment variable.")
+    raise RuntimeError("Please set the environment variable GEMINI_API with your Gemini API key")
 
 client = genai.Client(api_key=API_KEY)
 
 
 # ---------------- VALIDATION ---------------- #
 def validate_code(code: str, plan: Dict[str, Any]) -> Dict[str, Any]:
-    plan_json = json.dumps(plan, indent=2)
+    plan_json = json.dumps(plan, indent=4)
 
     with open("DOCUMENTATION.txt", "r", encoding="utf-8") as f:
         documentation = f.read()
 
     prompt = f"""
     You are an EXPlora-Lang validator.
-    Check the following EXPlora-Lang program for the execution of the provided plan and correctness according to the official language rules.
+    Check the following EXPlora-Lang program for the execution of the provided plan and correctness according to the language rules.
     
     Return a JSON object exactly in this format:
     
@@ -53,8 +53,7 @@ def validate_code(code: str, plan: Dict[str, Any]) -> Dict[str, Any]:
         model=GEMINI_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
-            temperature=0.0,
-            max_output_tokens=1024
+            temperature=0.2
         )
     )
 
@@ -76,7 +75,7 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
     Repair EXPlora-Lang code using Gemini API based on validation errors.
     Returns only the corrected code (no explanations).
     """
-    errors_json = json.dumps(validation_errors, indent=2)
+    errors_json = json.dumps(validation_errors, indent=4)
 
     prompt = f"""
     You are an EXPlora-Lang expert.
@@ -89,7 +88,7 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
     ERRORS:
     {errors_json}
     
-    Fix the code so it becomes valid EXPlora-Lang.
+    Fix the code so it becomes valid EXPlora-Lang code.
     Return ONLY the corrected EXPlora-Lang code. Do NOT provide any explanations.
     """
 
@@ -97,8 +96,7 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
         model=GEMINI_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
-            temperature=0.0,
-            max_output_tokens=1024
+            temperature=0.2
         )
     )
 
@@ -110,7 +108,7 @@ def repair_code(code: str, validation_errors: Dict[str, Any]) -> str:
 def generate_validated_code_from_plan(plan: Dict[str, Any], max_attempts: int = 3) -> str:
     """
     1. Generate EXPlora-Lang code from plan
-    2. Validate with Gemini API
+    2. Validate with Gemini
     3. Auto-repair if needed
     """
     code = generate_explora_code(plan)
@@ -124,7 +122,7 @@ def generate_validated_code_from_plan(plan: Dict[str, Any], max_attempts: int = 
             return code
 
         print(f"[Validation] Errors detected (attempt {attempt + 1}):")
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=4))
 
         # Repair code
         code = repair_code(code, result)

@@ -1,5 +1,13 @@
-import json
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
+import tempfile
+import subprocess
+import os
+import json
+
+
+LOG_FILE = "plan_runs.jsonl"  # one JSON per line
+
 
 def validate_plan_json(plan_json: str) -> Tuple[bool, List[str], Dict[str, Any] | None]:
     """Parse JSON and then validate against the new plan schema."""
@@ -120,3 +128,58 @@ def validate_plan_dict(plan: Dict[str, Any]) -> Tuple[bool, List[str]]:
         errors.append('"notes" must be a string (can be empty).')
 
     return (len(errors) == 0), errors
+
+def manual_edit(original_plan: str, errors: list[str]) -> str | None:
+    """
+    Basic version for manual editing.
+    Opens a temp file, writes the errors and the plan in it.
+    After the user modifies the plan, the temp file is closed and the new plan is validated.
+    """
+    print("Plan is invalid. Opening it for manual correction...")
+
+    with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json") as tmp:
+        tmp_path = tmp.name
+
+        # Write the original plan first
+        tmp.write(original_plan)
+        tmp.write("\n\n")
+        tmp.write("// --- Validation errors (for your reference) ---\n")
+        for e in errors:
+            tmp.write(f"// {e}\n")
+
+    # Use PyCharm (or whatever EDITOR is set to)
+    editor = os.environ.get("EDITOR") or "pycharm64.exe"
+    subprocess.run([editor, tmp_path])
+
+    # Read edited file
+    with open(tmp_path, "r", encoding="utf-8") as f:
+        edited = f.readlines()
+
+    # Strip comment lines (starting with //) before returning to validator
+    cleaned_lines = [
+        line for line in edited
+        if not line.lstrip().startswith("//")
+    ]
+    cleaned = "".join(cleaned_lines)
+
+    return cleaned
+
+def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan_txt: str, mode: str, generator_name: str = "GENERATOR_NOT_SET", judge_name: str = "JUDGE_NOT_SET", ) -> None:
+    """
+    Logs the attempt with relevant information.
+    """
+    entry = {
+        "run_id": run_id,
+        "attempt": attempt,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "generator": generator_name,
+        "judge": judge_name,
+        "validity": validity,
+        "reason": reason,
+        "plan": plan_txt,
+        "mode": mode,
+    }
+
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry))
+        f.write("\n")
