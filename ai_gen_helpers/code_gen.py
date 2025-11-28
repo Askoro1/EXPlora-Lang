@@ -1,17 +1,15 @@
 import os
 import json
 from typing import Dict, Any
-from pathlib import Path
-
 from google import genai
 from google.genai import types
 
 # ---------------- CONFIG ---------------- #
-GEMINI_MODEL = "gemini-2.0-flash"   # or whatever Gemini model you want
+GEMINI_MODEL = "gemini-2.5-flash"   # or whatever Gemini model you want
 
 API_KEY = os.environ.get("GEMINI_API")
 if not API_KEY:
-    raise RuntimeError("Please set the environment variable GEMINI_API_KEY with your Gemini API key")
+    raise RuntimeError("Please set the environment variable GEMINI_API with your Gemini API key")
 
 client = genai.Client(api_key=API_KEY)
 
@@ -20,10 +18,9 @@ def generate_explora_code(plan: Dict[str, Any]) -> str:
     Send the validated plan to the Gemini API and receive generated EXPlora-Lang code.
     """
 
-    plan_json = json.dumps(plan, indent=2, ensure_ascii=False)
+    plan_json = json.dumps(plan, indent=4)
 
-    doc_path = Path(__file__).resolve().parent.parent / "DOCUMENTATION.txt"
-    with open(doc_path, "r", encoding="utf-8") as f:
+    with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r", encoding="utf-8") as f:
         documentation = f.read()
 
     prompt = f"""
@@ -43,14 +40,13 @@ def generate_explora_code(plan: Dict[str, Any]) -> str:
         model=GEMINI_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
-            temperature=0.0,
-            max_output_tokens=1024
+            temperature=0.2
         )
     )
 
     # response is a `GenerateContentResponse`
     # `parts` may be a list of content parts, but `.text` gives the full text
-    return (response.text or "").strip()
+    return response.text.strip()
 
 
 # ---------------- EXAMPLE USAGE ---------------- #

@@ -148,6 +148,8 @@ def annotate_expression(expr, env):
             annotate_expression(body, local_env)
         case ast_nodes.PrimitiveLiteral():
             pass
+        case ast_nodes.StringLiteral():
+            pass
 
         # PlaceExpression Case
         case ast_nodes.FieldRef(record, _):

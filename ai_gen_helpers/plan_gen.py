@@ -2,11 +2,12 @@ import os
 import json
 from google import genai
 from google.genai import types
-from pathlib import Path
 
 MODEL_ID = "gemini-2.5-flash"
 
 API_KEY = os.environ.get("GEMINI_API")
+if not API_KEY:
+    raise RuntimeError("Please set the environment variable GEMINI_API with your Gemini API key")
 
 client = genai.Client(api_key=API_KEY)
 
@@ -113,9 +114,7 @@ Context:
 Please output the plan as a JSON object conforming to the structure described in the system prompt.
 """
 
-_DOC_PATH = Path(__file__).resolve().parent.parent / "DOCUMENTATION.txt"
-
-with open(_DOC_PATH, "r", encoding="utf-8") as documentation_file:
+with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r") as documentation_file:
     DOCUMENTATION = documentation_file.read()
 
 

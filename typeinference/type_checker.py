@@ -66,6 +66,9 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
 
             return ast_nodes.Type(first_elem_type.base_type, first_elem_type.dimension + 1)
 
+        case ast_nodes.StringLiteral(value):
+            return ast_nodes.Type(ast_nodes.PrimitiveType("string"), 0)
+
         case ast_nodes.LambdaLiteral(params, body):
             # Assume parameters already have typed due to the partially typed AST
             for p in params:

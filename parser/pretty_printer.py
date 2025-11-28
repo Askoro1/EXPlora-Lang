@@ -1,4 +1,4 @@
-from ..ast_nodes import *
+from ast_nodes import *
 from .tokenizer import tokenize
 from .parser import Parser
 
@@ -167,6 +167,9 @@ if __name__ == '__main__':
     int main() {
         int x = 10;
         float y = 3.14;
+        char c = 'a';
+        string s = "Hello, world!";
+        
         bool flag = true;
         int[2][2] arr = {{1, 2}, {3, 4}};
         int f = [](int x, int y) { return x + y; };

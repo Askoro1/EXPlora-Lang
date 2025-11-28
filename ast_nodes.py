@@ -109,7 +109,7 @@ PlaceExpression = VarRef | FieldRef
 # Expressions
 @dataclass
 class PrimitiveLiteral:
-    value: int | float | bool
+    value: int | float | bool | str
     type: Optional['Type'] = None
 
 
@@ -129,8 +129,13 @@ class RecordLiteral:
     type: Type
     field_values: dict[str, 'Expression']
 
+@dataclass
+class StringLiteral:
+    value: str
+    type: Optional['Type'] = None
 
-Literal = PrimitiveLiteral | ArrayLiteral | LambdaLiteral | RecordLiteral
+
+Literal = PrimitiveLiteral | ArrayLiteral | LambdaLiteral | RecordLiteral | StringLiteral
 
 
 @dataclass

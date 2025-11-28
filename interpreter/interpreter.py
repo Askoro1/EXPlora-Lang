@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Tuple
-from ..ast_nodes import *
-from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
-from .builtins_ import BUILTINS
+from ast_nodes import *
+from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
+from builtins_ import BUILTINS
 
 
 class Frame:
@@ -114,6 +114,11 @@ class Interpreter:
             inferred = PrimitiveType("int")
         elif isinstance(v, float):
             inferred = PrimitiveType("float")
+        elif isinstance(v, str):
+            if len(v) == 1:
+                inferred = PrimitiveType("char")
+            else:
+                inferred = PrimitiveType("string")
 
         elif NUMPY_ENABLED and isinstance(v, _np.ndarray):
             shape = shape_of_array(v)
@@ -233,6 +238,10 @@ class Interpreter:
             rv = RuntimeValue(node.value, static_type=None)
             return rv
 
+        if isinstance(node, StringLiteral):
+            rv = RuntimeValue(node.value, static_type=Type(base_type=PrimitiveType("string"), dimension=0))
+            return rv
+
         if isinstance(node, ArrayLiteral):
             items = [self.eval_expression(it, frame).value for it in node.value]
 
@@ -296,7 +305,8 @@ class Interpreter:
 
         if isinstance(node, RecordLiteral):
             # node.type is the name of the record (string)
-            rec_name = node.type.base_type.name
+            rec_name = node.type
+            # rec_name = node.type.base_type.name
             if rec_name not in self.type_registry:
                 raise RuntimeTypeError(f"Unknown record type '{rec_name}'")
             layout = self.type_registry[rec_name]

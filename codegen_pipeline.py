@@ -1,7 +1,5 @@
-from datetime import datetime, timezone
-import tempfile
-import subprocess
 import uuid
+<<<<<<<< HEAD:planvalidation/candidate_pipeline.py
 import json
 import os
 
@@ -9,10 +7,16 @@ from ..plangeneration.plan_gen import generate_plan
 from ..plangeneration.plan_judge import generate_judge_feedback
 from ..planvalidation.plan_validation import validate_plan_json
 from ..codegeneration.code_gen import generate_explora_code
+========
+from .ai_gen_helpers.plan_gen import generate_plan
+from .ai_gen_helpers.plan_validation import *
+from .ai_gen_helpers.code_gen import generate_explora_code
+from .ai_gen_helpers.code_validation import generate_validated_code_from_plan
+>>>>>>>> origin/main:codegen_pipeline.py
 
 MAX_RETRIES = 10  # LLM will retry generating the plan this many times
-LOG_FILE = "plan_runs.jsonl"  # one JSON per line
 
+<<<<<<<< HEAD:planvalidation/candidate_pipeline.py
 def manual_edit(original_plan: str, errors: list[str]) -> str | None:
     """
     Basic version for manual editing.
@@ -85,6 +89,9 @@ def log_plan_attempt(run_id: str, attempt: int, validity: str, reason: str, plan
         f.write("\n")
 
 def run_pipeline(prompt: str, context, manual_check: bool = False, generator_name: str = "GENERATOR_MODEL", judge_name: str = "JUDGE_MODEL",):
+========
+def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_name: str = "GENERATOR_MODEL", judge_name: str = "JUDGE_MODEL",):
+>>>>>>>> origin/main:codegen_pipeline.py
     run_id = str(uuid.uuid4())
     judge_feedback = None  # This gets used later if the plan fails validation
 
@@ -176,7 +183,7 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
 
                 # if still invalid, update state and loop again
                 error_msg = "; ".join(errors2 or ["unknown validation error"])
-                errors = errors2
+                errors = errors2[:]
                 plan_str = edited_plan
         else:
             # Auto-retry path (LLM judge + generator).  Log the invalid
@@ -217,3 +224,8 @@ def run_pipeline(prompt: str, context, manual_check: bool = False, generator_nam
     raise RuntimeError(
         f"No valid plan found after {MAX_RETRIES} attempts (run_id={run_id})."
     )
+
+
+if __name__ == "__main__":
+    user_request = "Read a CSV file, group by `category` column and calculate mean value by `value` column, then plot a bar chart"
+    codegen_pipeline(user_request, "None", manual_check=True, generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
