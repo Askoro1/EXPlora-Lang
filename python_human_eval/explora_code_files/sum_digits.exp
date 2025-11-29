@@ -1,0 +1,18 @@
+int sum_digits(int n) {
+    int s = 0;
+    int x = n;
+
+    while (x > 0) {
+        int digit = x % 10;
+        s = s + digit;
+
+        int q = 0;
+        while (x >= 10) {
+            x = x - 10;
+            q = q + 1;
+        }
+        x = q;
+    }
+
+    return s;
+}

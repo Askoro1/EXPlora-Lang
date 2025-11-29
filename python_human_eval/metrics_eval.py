@@ -68,6 +68,16 @@ TASKS = [
 
     ("same_parity", "same_parity.exp", "same_parity",
      [([2, 4], 1), ([2, 3], 0), ([5, 7], 1)]),
+
+    ("is_prime", "is_prime.exp", "is_prime",
+     [([2], 1), ([3], 1), ([4], 0), ([17], 1), ([1], 0)]),
+
+    ("sum_digits", "sum_digits.exp", "sum_digits",
+     [([123], 6), ([0], 0), ([999], 27)]),
+
+    ("is_palindrome", "is_palindrome.exp", "is_palindrome",
+     [([121], 1), ([123], 0), ([9], 1)]),
+
 ]
 
 def main():

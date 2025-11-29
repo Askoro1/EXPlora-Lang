@@ -141,5 +141,25 @@ class TestSameParity(unittest.TestCase):
         self.assertEqual(run_function("same_parity.exp", "same_parity", [2, 3]), 0)
         self.assertEqual(run_function("same_parity.exp", "same_parity", [5, 7]), 1)
 
+class TestIsPrime(unittest.TestCase):
+    def test_is_prime(self):
+        self.assertEqual(run_function("is_prime.exp", "is_prime", [2]), 1)
+        self.assertEqual(run_function("is_prime.exp", "is_prime", [3]), 1)
+        self.assertEqual(run_function("is_prime.exp", "is_prime", [4]), 0)
+        self.assertEqual(run_function("is_prime.exp", "is_prime", [17]), 1)
+        self.assertEqual(run_function("is_prime.exp", "is_prime", [1]), 0)
+
+class TestIsPalindrome(unittest.TestCase):
+    def test_is_palindrome(self):
+        self.assertEqual(run_function("is_palindrome.exp", "is_palindrome", [121]), 1)
+        self.assertEqual(run_function("is_palindrome.exp", "is_palindrome", [123]), 0)
+        self.assertEqual(run_function("is_palindrome.exp", "is_palindrome", [9]), 1)
+
+class TestSumDigits(unittest.TestCase):
+    def test_sum_digits(self):
+        self.assertEqual(run_function("sum_digits.exp", "sum_digits", [123]), 6)
+        self.assertEqual(run_function("sum_digits.exp", "sum_digits", [0]), 0)
+        self.assertEqual(run_function("sum_digits.exp", "sum_digits", [999]), 27)
+
 if __name__ == "__main__":
     unittest.main()
