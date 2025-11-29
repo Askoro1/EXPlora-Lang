@@ -1,3 +1,17 @@
+"""
+Validation and logging utilities for EXPlora‑Lang execution plans.
+
+This module validates JSON plans by comparing them to the formal
+schema defined in :mod:`ai_gen_helpers.plan_gen.PLAN_SCHEMA`.  It
+checks that all required fields are present, that field types match
+their declared types in the schema, and performs additional semantic
+checks (e.g., unique step identifiers, valid dependencies).  The
+validator accepts the ``notes`` field either as a single string or as
+a list of strings, mirroring the flexibility allowed in the planning
+rules.  This module also provides helpers for manual correction of
+invalid plans and for logging plan validation attempts.
+"""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +20,49 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
-from .plan_gen import PLAN_SCHEMA  # import schema for validation
+# Define the JSON schema for a valid plan.  This mirrors the schema used
+# by the plan generator to ensure consistency.  It is duplicated here
+# instead of imported from plan_gen to avoid cross‑module dependencies
+# when performing validation.
+PLAN_SCHEMA: Dict[str, Any] = {
+    "type": "OBJECT",
+    "properties": {
+        "problem": {
+            "type": "STRING",
+        },
+        "data_requirements": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING"},
+                    "type": {"type": "STRING"},
+                    "description": {"type": "STRING"},
+                },
+                "required": ["name", "type", "description"],
+            },
+        },
+        "steps": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "id": {"type": "INTEGER"},
+                    "description": {"type": "STRING"},
+                    "dependencies": {
+                        "type": "ARRAY",
+                        "items": {"type": "INTEGER"},
+                    },
+                },
+                "required": ["id", "description", "dependencies"],
+            },
+        },
+        "notes": {
+            "type": "STRING",
+        },
+    },
+    "required": ["problem", "data_requirements", "steps", "notes"],
+}
 
 try:
     from google import genai
@@ -161,10 +217,15 @@ Plan schema:
 PLAN:
 {plan_json}
 """
-    response = _client.models.generate_content(
+    config = types.GenerateContentConfig(
+        temperature=0.2,
+        response_mime_type="application/json",
+        response_schema=PLAN_SCHEMA,
+    )
+    response = _client.models.generate_content(  # type: ignore[union-attr]
         model=model,
         contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.2),
+        config=config,
     )
     text = response.text.strip()
     # Attempt to parse the response as JSON.  If it contains extra text
