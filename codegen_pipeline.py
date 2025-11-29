@@ -11,7 +11,8 @@ def codegen_pipeline(prompt: str, context, manual_check: bool = True, generator_
 
     curr_attempt = 0
 
-    with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r") as documentation_file:
+    doc_path = os.path.join(os.path.dirname(__file__), "ai_gen_helpers", "DOCUMENTATION.txt")
+    with open(doc_path, "r", encoding="utf-8") as documentation_file:
         documentation = documentation_file.read()
 
     # Generate the plan

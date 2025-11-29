@@ -1,11 +1,3 @@
-"""
-Validation and logging utilities for EXPlora‑Lang execution plans.
-
-This module provides helpers to validate JSON plans against the expected
-schema, to allow manual correction of invalid plans, and to record plan
-validation attempts in a log file.
-"""
-
 from __future__ import annotations
 
 import json
@@ -14,27 +6,27 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
+from .plan_gen import PLAN_SCHEMA  # import schema for validation
 
-LOG_FILE: str = "plan_runs.jsonl"  # one JSON record per line
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
+    types = None
+
+GEMINI_MODEL: str = "gemini-2.5-flash"
+
+API_KEY = os.environ.get("GEMINI_API")
+if genai is not None and API_KEY:
+    _client = genai.Client(api_key=API_KEY)
+else:
+    _client = None
+
+LOG_FILE: str = "plan_runs.jsonl"
 
 
 def validate_plan_json(plan_json: str) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
-    """
-    Parse ``plan_json`` and validate it against the plan schema.
-
-    Parameters
-    ----------
-    plan_json : str
-        A JSON string representation of a plan.
-
-    Returns
-    -------
-    tuple
-        ``(ok, errors, plan)`` where ``ok`` is a boolean indicating whether
-        the plan is valid, ``errors`` is a list of human‑readable error
-        messages, and ``plan`` is the parsed plan dictionary when valid or
-        ``None`` when invalid.
-    """
     try:
         plan = json.loads(plan_json)
     except json.JSONDecodeError as e:
@@ -44,131 +36,163 @@ def validate_plan_json(plan_json: str) -> Tuple[bool, List[str], Optional[Dict[s
 
 
 def validate_plan_dict(plan: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """
-    Validate a plan dictionary according to the schema expected by the code
-    generator.  The schema is reproduced here for easy reference:
-
-    ``{
-        "problem": string,
-        "data_requirements": [
-            { "name": string, "type": string, "description": string }, ...
-        ],
-        "steps": [
-            { "id": int, "description": string, "dependencies": [int, ...] }, ...
-        ],
-        "notes": string
-    }``
-
-    Parameters
-    ----------
-    plan : dict
-        The plan object to validate.
-
-    Returns
-    -------
-    tuple
-        ``(ok, errors)`` where ``ok`` is ``True`` if the plan is valid and
-        ``errors`` is a list of error messages.  ``errors`` will be empty
-        when ``ok`` is ``True``.
-    """
     errors: List[str] = []
-    # Top‑level object must be a dict
     if not isinstance(plan, dict):
         return False, ["Plan must be a JSON object."]
-    # ``problem`` field
-    problem = plan.get("problem")
-    if not isinstance(problem, str) or not problem.strip():
-        errors.append('"problem" must be a non‑empty string.')
-    # ``data_requirements`` field
-    data_reqs = plan.get("data_requirements")
-    if not isinstance(data_reqs, list) or not data_reqs:
-        errors.append('"data_requirements" must be a non‑empty list.')
-    else:
-        for idx, dr in enumerate(data_reqs):
-            ctx = f"data_requirements[{idx}]"
-            if not isinstance(dr, dict):
-                errors.append(f"{ctx}: must be an object.")
-                continue
-            name = dr.get("name")
-            dtype = dr.get("type")
-            desc = dr.get("description")
-            if not isinstance(name, str) or not name.strip():
-                errors.append(f'{ctx}: "name" must be a non‑empty string.')
-            if not isinstance(dtype, str) or not dtype.strip():
-                errors.append(f'{ctx}: "type" must be a non‑empty string.')
-            if not isinstance(desc, str) or not desc.strip():
-                errors.append(f'{ctx}: "description" must be a non‑empty string.')
-    # ``steps`` field
-    steps = plan.get("steps")
-    if not isinstance(steps, list) or not steps:
-        errors.append('"steps" must be a non‑empty list.')
-        # Without steps nothing else makes sense, so return early
-        return (len(errors) == 0), errors
-    # Collect step ids
-    ids: List[int] = []
-    for idx, step in enumerate(steps):
-        ctx = f"steps[{idx}]"
-        if not isinstance(step, dict):
-            errors.append(f"{ctx}: step must be an object.")
-            continue
-        sid = step.get("id")
-        if not isinstance(sid, int):
-            errors.append(f'{ctx}: "id" must be an integer.')
-            continue
-        if sid in ids:
-            errors.append(f"{ctx}: duplicate id {sid}.")
+
+    # Use schema to check required fields and types
+    properties = PLAN_SCHEMA.get("properties", {})
+    required_keys = set(PLAN_SCHEMA.get("required", []))
+
+    # Check for missing required keys
+    for key in required_keys:
+        if key not in plan or plan[key] in (None, ""):
+            errors.append(f'"{key}" is missing or empty.')
+
+    # Generic type checks based on schema definitions
+    def _validate_value(value: Any, schema: Dict[str, Any], path: str) -> None:
+        schema_type = schema.get("type")
+        if schema_type == "STRING":
+            # Special case: allow ``notes`` to be a list of strings as
+            # described in the planning rules.  ``path`` contains the JSON
+            # key with surrounding quotes (e.g., '"notes"'), so we can
+            # inspect it directly.  If the value is a list and all items
+            # are strings, treat it as valid.
+            if path == '"notes"' and isinstance(value, list):
+                if all(isinstance(n, str) for n in value):
+                    return  # Accept list‑of‑string for notes
+            if not isinstance(value, str) or (not value and path in required_keys):
+                errors.append(f'{path} must be a non‑empty string.')
+        elif schema_type == "INTEGER":
+            if not isinstance(value, int):
+                errors.append(f'{path} must be an integer.')
+        elif schema_type == "ARRAY":
+            if not isinstance(value, list):
+                errors.append(f'{path} must be a list.')
+            else:
+                item_schema = schema.get("items")
+                for i, item in enumerate(value):
+                    _validate_value(item, item_schema, f'{path}[{i}]')
+        elif schema_type == "OBJECT":
+            if not isinstance(value, dict):
+                errors.append(f'{path} must be an object.')
+            else:
+                sub_props = schema.get("properties", {})
+                sub_required = schema.get("required", [])
+                for rk in sub_required:
+                    if rk not in value or value[rk] in (None, ""):
+                        errors.append(f'{path}["{rk}"] is missing or empty.')
+                for k, v in value.items():
+                    if k in sub_props:
+                        _validate_value(v, sub_props[k], f'{path}["{k}"]')
         else:
-            ids.append(sid)
-    id_set = set(ids)
-    # Validate descriptions and dependencies
-    for idx, step in enumerate(steps):
-        if not isinstance(step, dict):
-            continue  # already reported
-        ctx = f"steps[{idx}]"
-        sid = step.get("id")
-        desc = step.get("description")
-        if not isinstance(desc, str) or not desc.strip():
-            errors.append(f'{ctx}: "description" must be a non‑empty string.')
-        deps = step.get("dependencies")
-        if deps is None:
-            deps = []
-        if not isinstance(deps, list):
-            errors.append(f'{ctx}: "dependencies" must be a list.')
-            continue
-        for d in deps:
-            if not isinstance(d, int):
-                errors.append(f'{ctx}: dependency {d!r} must be an integer id.')
+            # Unknown type in schema; silently accept
+            return
+
+    # Validate each property present in plan
+    for key, value in plan.items():
+        if key in properties:
+            _validate_value(value, properties[key], f'"{key}"')
+
+    # Additional semantic checks specific to steps
+    steps = plan.get("steps")
+    if isinstance(steps, list) and steps:
+        ids: List[int] = []
+        for idx, step in enumerate(steps):
+            ctx = f'steps[{idx}]'
+            # Ensure each step is a dict
+            if not isinstance(step, dict):
+                errors.append(f'{ctx} must be an object.')
                 continue
-            if d not in id_set:
-                errors.append(f'{ctx}: dependency {d} does not match any step "id".')
-            if sid is not None and d == sid:
-                errors.append(f'{ctx}: step cannot depend on itself (id={sid}).')
-    # ``notes`` field
-    notes = plan.get("notes")
-    if not isinstance(notes, str):
-        errors.append('"notes" must be a string (can be empty).')
+            sid = step.get("id")
+            if isinstance(sid, int):
+                if sid in ids:
+                    errors.append(f'{ctx}: duplicate id {sid}.')
+                else:
+                    ids.append(sid)
+            # Validate dependencies
+            deps = step.get("dependencies")
+            if deps is None:
+                deps = []
+            if not isinstance(deps, list):
+                errors.append(f'{ctx}: "dependencies" must be a list.')
+            else:
+                for d in deps:
+                    if not isinstance(d, int):
+                        errors.append(f'{ctx}: dependency {d!r} must be an integer id.')
+                    elif d not in ids:
+                        errors.append(f'{ctx}: dependency {d} does not match any step "id".')
+                    elif sid is not None and d == sid:
+                        errors.append(f'{ctx}: step cannot depend on itself (id={sid}).')
+
     return (len(errors) == 0), errors
 
 
+def validate_plan(plan: Dict[str, Any], *, documentation: str = "None", model: str = GEMINI_MODEL) -> Dict[str, Any]:
+    if _client is None or genai is None or types is None:
+        ok, errors = validate_plan_dict(plan)
+        return {
+            "valid": ok,
+            "errors": [{"message": e} for e in errors],
+        }
+
+    plan_json = json.dumps(plan, indent=4)
+    schema_json = json.dumps(PLAN_SCHEMA, indent=4)
+    prompt = f"""
+You are an EXPlora‑Lang plan validator.
+Check whether the following plan is valid according to the plan schema.  In
+addition to structural correctness, ensure that required fields are
+non‑empty and that step identifiers and dependencies are consistent.  If
+the plan is invalid, list each reason concisely.
+
+Return a JSON object exactly in this format:
+
+{{
+  "valid": true/false,
+  "errors": [
+    {{"message": "..."}},
+    ...
+  ]
+}}
+
+Plan schema:
+{schema_json}
+
+PLAN:
+{plan_json}
+"""
+    response = _client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=types.GenerateContentConfig(temperature=0.2),
+    )
+    text = response.text.strip()
+    # Attempt to parse the response as JSON.  If it contains extra text
+    # around the JSON, extract the first and last braces.
+    try:
+        data: Dict[str, Any] = json.loads(text)
+    except Exception:
+        start = text.find("{")
+        end = text.rfind("}")
+        data = json.loads(text[start : end + 1])
+    # Ensure the errors list is always present
+    if data.get("errors") is None:
+        data["errors"] = []
+    return data
+
+
+def validate_plan_json_json(plan_json: str, *, documentation: str = "None", model: str = GEMINI_MODEL) -> Dict[str, Any]:
+    try:
+        plan = json.loads(plan_json)
+    except json.JSONDecodeError as e:
+        return {
+            "valid": False,
+            "errors": [{"message": f"Invalid JSON: {e}"}],
+        }
+    return validate_plan(plan, documentation=documentation, model=model)
+
+
 def manual_edit(original_plan: str, errors: List[str]) -> Optional[str]:
-    """
-    Open a temporary file containing the invalid plan and error messages for
-    manual editing.
-
-    Parameters
-    ----------
-    original_plan : str
-        The JSON plan string that failed validation.
-    errors : list of str
-        A list of validation error messages.  These will be prepended as
-        comments at the end of the file to guide the user.
-
-    Returns
-    -------
-    str or None
-        The edited JSON plan string with comment lines stripped, or ``None``
-        if the user cancelled editing.
-    """
     print("Plan is invalid. Opening it for manual correction...")
     with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json", encoding="utf-8") as tmp:
         tmp_path = tmp.name
