@@ -248,7 +248,7 @@ class Parser:
             return self.parse_block()
 
         # Otherwise, normal expression
-        expr = self.parse_expression()
+        expr = self.parse_expression(prev_stmts)
         self.expect(TokenType.OP, ";")
 
         if isinstance(expr, Assignment):
@@ -361,7 +361,7 @@ class Parser:
                     args = []
                     if not self.accept(TokenType.OP, ")"):
                         while True:
-                            args.append(self.parse_expression())
+                            args.append(self.parse_expression(prev_stmts))
                             if self.accept(TokenType.OP, ")"):
                                 break
                             self.expect(TokenType.OP, ",")

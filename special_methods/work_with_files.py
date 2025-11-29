@@ -1,5 +1,6 @@
 import csv
 
+from numpy import ndarray
 from ..ast_nodes import *
 from ..interpreter.utils import RuntimeValue
 
@@ -33,7 +34,7 @@ def csv_reader_native(path_expr):
             ...
         ])
     """
-    path = path_expr[0].value
+    path = path_expr.value
     assert isinstance(path, str), "csv_reader expects string literal path"
 
     rows = []
@@ -45,9 +46,7 @@ def csv_reader_native(path_expr):
 
     shape = (len(rows), len(rows[0]))
 
-    return RuntimeValue(rows, static_type=Type(base_type=PrimitiveType("int"),
-                                                    dimension=2),
-                                                    shape=shape)
+    return RuntimeValue(rows, static_type=Type(base_type=PrimitiveType("int"), dimension=2), shape=shape)
 
 
 # ==================================================
@@ -60,8 +59,11 @@ def csv_writer_native(path_expr, array_expr):
 
     someArray must be an ArrayLiteral of ArrayLiteral of PrimitiveLiteral
     """
-    assert isinstance(path_expr, StringLiteral), "csv_writer expects string literal path"
-    assert isinstance(array_expr, ArrayLiteral), "csv_writer expects array of arrays"
+    assert isinstance(path_expr, RuntimeValue), "csv_writer expects string literal path"
+    assert isinstance(array_expr, RuntimeValue), "csv_writer expects array of arrays"
+
+    assert isinstance(path_expr.value, str), "csv_writer expects string literal path"
+    assert array_expr.static_type.dimension == 2, "array must be 2D"
 
     path = path_expr.value
     table = array_expr.value  # list[Expression] (here list[ArrayLiteral])
@@ -70,16 +72,10 @@ def csv_writer_native(path_expr, array_expr):
         writer = csv.writer(f)
 
         for row_expr in table:
-            if not isinstance(row_expr, ArrayLiteral):
+            if not isinstance(row_expr, ndarray):
                 raise TypeError("CSV writer expects an array of arrays")
 
-            csv_row = []
-            for cell_expr in row_expr.value:
-                if not isinstance(cell_expr, PrimitiveLiteral):
-                    raise TypeError("CSV cells must be numeric PrimitiveLiteral")
-                csv_row.append(cell_expr.value)
-
-            writer.writerow(csv_row)
+            writer.writerow(row_expr)
 
     # No meaningful return → produce unit literal
     return PrimitiveLiteral(0)  # your language uses "unit"; replace with unit if defined

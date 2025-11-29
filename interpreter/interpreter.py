@@ -376,7 +376,7 @@ class Interpreter:
             fm = fn_rv.func_meta or {}
             if fm.get('builtin', False):
                 args = [self.eval_expression(a, frame) for a in node.arguments]
-                return fm['pyfunc'](args)
+                return fm['pyfunc'](*args)
 
             # now handle user-defined functions: either FunctionDef by name (node.function VarRef) or LambdaLiteral closure
 
