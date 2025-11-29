@@ -92,11 +92,22 @@ from ..parser.parser import Parser
 #     }
 #     """
 
+# code = r"""
+#     int main() {
+#         int[2][2] arr = {{1, 2}, {3, 4}};
+#         arr[0][0] = 1000;
+#         return arr[0][0];
+#     }
+# """
+
 code = r"""
-    int main() {
-        int[2][2] arr = {{1, 2}, {3, 4}};
-        arr[0][0] = 1000;
-        return arr[0][0];
+    string main() {
+        int[2][2] arr1 = {{1, 2}, {3, 4}};
+        int[2][2] arr2 = csv_reader(PATH_TO_CSV);
+        int[2][2] arr3 = arr1 + arr2;
+        string b = "aboba";
+        
+        return b + " is dead";
     }
 """
 
