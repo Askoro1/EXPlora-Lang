@@ -23,7 +23,13 @@ def generate_explora_code(plan: Dict[str, Any], documentation="None") -> str:
     prompt = f"""
     You are an EXPlora-Lang programming language code generator.
     Convert the following validated execution plan into correct EXPlora-Lang code.
-    Only output code. Do NOT explain anything. If you write comments, do it only for the most **important parts**.
+    Only output code (**it MUST be put between 3 BACKQUOTES before it and 3 after it**, like this: 
+    ```
+    code
+    ```
+    ).
+    Do NOT explain anything.
+    Try to write **less comments**. If you write comments, do it only for the most **important parts**.
     
     Explora‑Lang Documentation:
     {documentation}

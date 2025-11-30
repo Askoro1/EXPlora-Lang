@@ -129,26 +129,26 @@ def validate_plan_dict(plan: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
     return (len(errors) == 0), errors
 
-def manual_edit(original_plan: str, errors: list[str]) -> str | None:
+def manual_edit_plan(original_plan: Dict[str, Any], errors: list[str]) -> str | None:
     """
-    Basic version for manual editing.
+    Manual editing function.
     Opens a temp file, writes the errors and the plan in it.
     After the user modifies the plan, the temp file is closed and the new plan is validated.
     """
-    print("Plan is invalid. Opening it for manual correction...")
 
-    with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".json") as tmp:
+    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".json") as tmp:
         tmp_path = tmp.name
 
         # Write the original plan first
-        tmp.write(original_plan)
-        tmp.write("\n\n")
-        tmp.write("// --- Validation errors (for your reference) ---\n")
-        for e in errors:
-            tmp.write(f"// {e}\n")
+        json.dump(original_plan, tmp, indent=4)
+        if len(errors) > 0:
+            tmp.write("\n\n")
+            tmp.write("// --- Validation errors (for your reference) ---\n")
+            for e in errors:
+                tmp.write(f"// {e}\n")
 
-    # Use PyCharm (or whatever EDITOR is set to)
-    editor = os.environ.get("EDITOR") or "pycharm64.exe"
+    # Use vim (or whatever EDITOR is set to)
+    editor = os.environ.get("EDITOR") or "vim"
     subprocess.run([editor, tmp_path])
 
     # Read edited file

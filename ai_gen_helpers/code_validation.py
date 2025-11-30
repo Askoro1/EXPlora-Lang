@@ -3,6 +3,8 @@ import json
 from typing import Dict, Any
 from google import genai
 from google.genai import types
+import tempfile
+import subprocess
 
 from .code_gen import generate_explora_code  # updated generator
 
@@ -104,6 +106,22 @@ def repair_code(code: str, validation_errors: Dict[str, Any], documentation="Non
     return corrected_code
 
 
+def manual_edit_code(code: str) -> str:
+    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".txt") as tmp:
+        tmp_path = tmp.name
+        tmp.write(code)
+
+    # Use vim (or whatever EDITOR is set to)
+    editor = os.environ.get("EDITOR") or "vim"
+    subprocess.run([editor, tmp_path])
+
+    # Read edited file
+    with open(tmp_path, "r", encoding="utf-8") as f:
+        edited = f.read()
+
+    return edited
+
+
 # ---------------- MASTER PIPELINE ---------------- #
 def generate_validated_code_from_plan(plan: Dict[str, Any], documentation="None", max_attempts: int = 3) -> str:
     """
@@ -129,8 +147,10 @@ def generate_validated_code_from_plan(plan: Dict[str, Any], documentation="None"
         # Repair code
         code = repair_code(code, result, documentation=documentation)
 
+        print()
         print("[Generation Result]")
         print(code)
+        print()
 
     raise RuntimeError(f"Unable to generate valid code after {max_attempts} attempts.")
 

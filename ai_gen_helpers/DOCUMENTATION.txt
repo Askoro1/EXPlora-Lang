@@ -26,6 +26,9 @@ EXPlora-Lang is a statically typed, C-like language with:
 2. TYPES
 ------------------------------------------------------------
 
+NoneType alias:
+    unit
+
 Primitive types:
     int
     float
