@@ -348,7 +348,7 @@ class Parser:
             self.next()
             node: Expression = VarRef(tok.value)
             # Record literal: Type { ... }
-            for i in prev_stmts:
+            for i in (prev_stmts or []):
                 if isinstance(i, DeclStmt) and i.declaration.name == node.name:
                     node.type = i.declaration.type
 

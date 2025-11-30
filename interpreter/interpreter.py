@@ -2,10 +2,10 @@ from typing import Any, Dict, List, Tuple
 
 from numpy import ndarray
 
-from ast_nodes import *
-from utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
+from ..ast_nodes import *
+from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
 from ..special_methods.work_with_files import csv_reader_native, csv_writer_native
-from builtins_ import BUILTINS
+from .builtins_ import BUILTINS
 
 
 class Frame:
