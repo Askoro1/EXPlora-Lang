@@ -1,17 +1,3 @@
-"""
-Validation and logging utilities for EXPlora‑Lang execution plans.
-
-This module validates JSON plans by comparing them to the formal
-schema defined in :mod:`ai_gen_helpers.plan_gen.PLAN_SCHEMA`.  It
-checks that all required fields are present, that field types match
-their declared types in the schema, and performs additional semantic
-checks (e.g., unique step identifiers, valid dependencies).  The
-validator accepts the ``notes`` field either as a single string or as
-a list of strings, mirroring the flexibility allowed in the planning
-rules.  This module also provides helpers for manual correction of
-invalid plans and for logging plan validation attempts.
-"""
-
 from __future__ import annotations
 
 import json
@@ -20,48 +6,27 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
-# Define the JSON schema for a valid plan.  This mirrors the schema used
-# by the plan generator to ensure consistency.  It is duplicated here
-# instead of imported from plan_gen to avoid cross‑module dependencies
-# when performing validation.
+
+from .plan_gen import PLAN_SCHEMA as PLAN_STRUCTURE_SCHEMA
+
 PLAN_SCHEMA: Dict[str, Any] = {
     "type": "OBJECT",
     "properties": {
-        "problem": {
-            "type": "STRING",
+        "valid": {
+            "type": "BOOLEAN",
         },
-        "data_requirements": {
+        "errors": {
             "type": "ARRAY",
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "name": {"type": "STRING"},
-                    "type": {"type": "STRING"},
-                    "description": {"type": "STRING"},
+                    "message": {"type": "STRING"},
                 },
-                "required": ["name", "type", "description"],
+                "required": ["message"],
             },
-        },
-        "steps": {
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "id": {"type": "INTEGER"},
-                    "description": {"type": "STRING"},
-                    "dependencies": {
-                        "type": "ARRAY",
-                        "items": {"type": "INTEGER"},
-                    },
-                },
-                "required": ["id", "description", "dependencies"],
-            },
-        },
-        "notes": {
-            "type": "STRING",
         },
     },
-    "required": ["problem", "data_requirements", "steps", "notes"],
+    "required": ["valid", "errors"],
 }
 
 try:
@@ -97,8 +62,8 @@ def validate_plan_dict(plan: Dict[str, Any]) -> Tuple[bool, List[str]]:
         return False, ["Plan must be a JSON object."]
 
     # Use schema to check required fields and types
-    properties = PLAN_SCHEMA.get("properties", {})
-    required_keys = set(PLAN_SCHEMA.get("required", []))
+    properties = PLAN_STRUCTURE_SCHEMA.get("properties", {})
+    required_keys = set(PLAN_STRUCTURE_SCHEMA.get("required", []))
 
     # Check for missing required keys
     for key in required_keys:
@@ -193,7 +158,7 @@ def validate_plan(plan: Dict[str, Any], *, documentation: str = "None", model: s
         }
 
     plan_json = json.dumps(plan, indent=4)
-    schema_json = json.dumps(PLAN_SCHEMA, indent=4)
+    schema_json = json.dumps(PLAN_STRUCTURE_SCHEMA, indent=4)
     prompt = f"""
 You are an EXPlora‑Lang plan validator.
 Check whether the following plan is valid according to the plan schema.  In
