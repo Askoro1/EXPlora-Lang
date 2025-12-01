@@ -20,6 +20,10 @@ class RuntimeTypeError(RuntimeErrorWithNode):
     pass
 
 
+class StopRecursion(Exception):
+    pass
+
+
 @dataclass
 class RuntimeValue:
     """Wrapper which contains the value itself, static type of the variable (Type/None) and additional metadata"""

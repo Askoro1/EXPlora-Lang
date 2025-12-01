@@ -1,5 +1,6 @@
 from . import type_checker
 from .. import ast_nodes
+from ..interpreter.builtins_ import *
 
 def type_annotate_program(program, env=None):
     """
@@ -15,11 +16,16 @@ def type_annotate_program(program, env=None):
     """
     if env is None:
         env = {}
+
+    builtins_set = set()
+    for name in BUILTINS.keys():
+        builtins_set.add(name)
+
     for decl in program.declarations:
-        annotate_declaration(decl, env)
+        annotate_declaration(decl, env, builtins_set)
     return program
 
-def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_nodes.Type]):
+def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_nodes.Type], builtins_set: set[str]):
     """
     For each declaration in the program, annotate its type to the AST.
 
@@ -34,7 +40,7 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
         case ast_nodes.VarDecl(name, declared_type, mutable, initializer):
             if initializer:
                 # Recursively go down until leaf node level
-                initializer = annotate_expression(initializer, env)
+                initializer = annotate_expression(initializer, env, builtins_set)
 
                 # Get the type of the current expression
                 inferred_type = initializer.type
@@ -81,7 +87,7 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
             for p in params:
                 local_env[p.name] = p.type
 
-            annotate_expression(body, local_env)
+            annotate_expression(body, local_env, builtins_set)
 
             setattr(declaration, "type", fn_type)
 
@@ -99,7 +105,7 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
             # Attach the type to the declaration node itself
             setattr(declaration, "type", env[name])
 
-def annotate_statement(stmt, env):
+def annotate_statement(stmt, env, builtins_set):
     """
     Traversal only function. Figures out what kind of statement it is dealing
     with, and calls either the expression annotation or itself.
@@ -109,17 +115,17 @@ def annotate_statement(stmt, env):
         env: The environment where program variables are recorded.
     """
     if isinstance(stmt, ast_nodes.Assignment):
-        annotate_expression(stmt.lvalue, env)
-        annotate_expression(stmt.rvalue, env)
+        annotate_expression(stmt.lvalue, env, builtins_set)
+        annotate_expression(stmt.rvalue, env, builtins_set)
     elif isinstance(stmt, ast_nodes.WhileLoop):
-        annotate_expression(stmt.condition, env)
-        annotate_statement(stmt.body, env)
+        annotate_expression(stmt.condition, env, builtins_set)
+        annotate_statement(stmt.body, env, builtins_set)
     elif isinstance(stmt, ast_nodes.DeclStmt):
-        annotate_declaration(stmt.declaration, env)
+        annotate_declaration(stmt.declaration, env, builtins_set)
     elif isinstance(stmt, ast_nodes.ExprStmt):
-        annotate_expression(stmt.expression, env)
+        annotate_expression(stmt.expression, env, builtins_set)
 
-def annotate_expression(expr, env):
+def annotate_expression(expr, env, builtins_set):
     """
     Recursively goes to lower levels of the AST.
     Once Primitives are reached,  annotate with their types.
@@ -137,15 +143,15 @@ def annotate_expression(expr, env):
         # Literal Cases
         case ast_nodes.ArrayLiteral(value):
             for v in value:
-                annotate_expression(v, env)
+                annotate_expression(v, env, builtins_set)
         case ast_nodes.RecordLiteral(_, field_values):
             for v in field_values.values():
-                annotate_expression(v, env)
+                annotate_expression(v, env, builtins_set)
         case ast_nodes.LambdaLiteral(params, body):
             local_env = env.copy()
             for p in params:
                 local_env[p.name] = p.type
-            annotate_expression(body, local_env)
+            annotate_expression(body, local_env, builtins_set)
         case ast_nodes.PrimitiveLiteral():
             pass
         case ast_nodes.StringLiteral():
@@ -153,31 +159,31 @@ def annotate_expression(expr, env):
 
         # PlaceExpression Case
         case ast_nodes.FieldRef(record, _):
-            annotate_expression(record, env)
+            annotate_expression(record, env, builtins_set)
         case ast_nodes.VarRef():
             pass
 
         # Function & Operator Call
         case ast_nodes.FunctionCall(function, arguments):
-            annotate_expression(function, env)
+            annotate_expression(function, env, builtins_set)
             for a in arguments:
-                annotate_expression(a, env)
+                annotate_expression(a, env, builtins_set)
         case ast_nodes.OperatorCall(_, operands):
             for o in operands:
-                annotate_expression(o, env)
+                annotate_expression(o, env, builtins_set)
 
         # Block, IfExpr Cases
         case ast_nodes.IfExpr(condition, then_expr, else_expr):
-            annotate_expression(condition, env)
-            annotate_expression(then_expr, env)
-            annotate_expression(else_expr, env)
+            annotate_expression(condition, env, builtins_set)
+            annotate_expression(then_expr, env, builtins_set)
+            annotate_expression(else_expr, env, builtins_set)
         case ast_nodes.Block(statements):
             local_env = env.copy()
             for s in statements:
-                annotate_statement(s, local_env)
+                annotate_statement(s, local_env, builtins_set)
         case _:
             pass
 
-    t = type_checker.infer_expression_type(expr, env)
+    t = type_checker.infer_expression_type(expr, env, builtins_set)
     setattr(expr, "type", t)
     return expr

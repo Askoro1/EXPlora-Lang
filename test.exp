@@ -39,8 +39,11 @@ int main() {
         x = x - 1;
     }
 
-    while (x < 15) {
+    AI("Write a piece of code, where x is multiplied by 20 if x < 20, otherwise initialize z = x^2");
+
+    while (x < 226) {
         x = x + 2;
+        AI("Write a code snippet, where x is multiplied by 2");
     }
 
     int result = add(x, 5);

@@ -13,7 +13,7 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-def generate_explora_code(plan: Dict[str, Any], documentation="None") -> str:
+def generate_explora_code(plan: Dict[str, Any], code: str, documentation="None") -> str:
     """
     Send the validated plan to the Gemini API and receive generated EXPlora-Lang code.
     """
@@ -21,21 +21,27 @@ def generate_explora_code(plan: Dict[str, Any], documentation="None") -> str:
     plan_json = json.dumps(plan, indent=4)
 
     prompt = f"""
-    You are an EXPlora-Lang programming language code generator.
-    Convert the following validated execution plan into correct EXPlora-Lang code.
-    Only output code (**it MUST be put between 3 BACKQUOTES before it and 3 after it**, like this: 
-    ```
-    code
-    ```
-    ).
-    Do NOT explain anything.
-    Try to write **less comments**. If you write comments, do it only for the most **important parts**.
-    
-    Explora‑Lang Documentation:
+    You are an EXPlora-Lang programming language code generator for replacing AI blocks.
+
+    Your task:
+    Using the EXECUTION PLAN, generate the correct EXPlora-Lang code snippet that must **replace the FIRST `AI(...)` block** in the ORIGINAL CODE.
+
+    ⚠️ Strict rules:
+    - **Output ONLY the replacement code snippet (NOT the full file)** - It is very IMPORTANT!
+    - The output MUST be wrapped in exactly three backticks before and after.
+    - Do NOT explain anything.
+    - Do NOT add any text outside the code block.
+    - Do NOT copy surrounding code.
+    - The snippet must be complete and valid EXPlora-Lang.
+
+    EXPlora-Lang Documentation:
     {documentation}
-    
-    PLAN:
+
+    EXECUTION PLAN:
     {plan_json}
+
+    ORIGINAL CODE (for context only – do NOT repeat it):
+    {code}
     """
 
     # Use the GenAI client to call Gemini

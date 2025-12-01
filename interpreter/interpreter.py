@@ -21,8 +21,9 @@ class Frame:
 
 
 class Interpreter:
-    def __init__(self, program: Program):
+    def __init__(self, program: Program, code: str = "None"):
         self.program = program
+        self.code = code
         self.global_frame = Frame()
         # register builtins in global scope as funcs
         for name, fn in BUILTINS.items():
@@ -305,8 +306,9 @@ class Interpreter:
 
         if isinstance(node, RecordLiteral):
             # node.type is the name of the record (string)
-            rec_name = node.type
-            # rec_name = node.type.base_type.name
+            #rec_name = node.type
+            rec_name = node.type.base_type.name
+
             if rec_name not in self.type_registry:
                 raise RuntimeTypeError(f"Unknown record type '{rec_name}'")
             layout = self.type_registry[rec_name]
@@ -351,7 +353,10 @@ class Interpreter:
             fm = fn_rv.func_meta or {}
             if fm.get('builtin', False):
                 args = [self.eval_expression(a, frame) for a in node.arguments]
-                return fm['pyfunc'](args)
+                if fm['pyfunc'].__name__ == "_builtin_ai_code_gen":
+                    return fm['pyfunc'](args, code=self.code)
+                else:
+                    return fm['pyfunc'](args)
 
             # now handle user-defined functions: either FunctionDef by name (node.function VarRef) or LambdaLiteral closure
 

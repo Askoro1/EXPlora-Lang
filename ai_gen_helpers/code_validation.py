@@ -123,33 +123,34 @@ def manual_edit_code(code: str) -> str:
 
 
 # ---------------- MASTER PIPELINE ---------------- #
-def generate_validated_code_from_plan(plan: Dict[str, Any], documentation="None", max_attempts: int = 3) -> str:
+def generate_validated_code_from_plan(plan: Dict[str, Any], code: str, documentation="None", max_attempts: int = 3) -> str:
     """
     1. Generate EXPlora-Lang code from plan
     2. Validate with Gemini
     3. Auto-repair if needed
     """
-    code = generate_explora_code(plan, documentation=documentation)
+    code_snippet = generate_explora_code(plan, code, documentation=documentation)
 
     print("[Generation Result]")
-    print(code)
+    print(code_snippet)
 
     for attempt in range(max_attempts):
-        result = validate_code(code, plan, documentation=documentation)
+        result = validate_code(code_snippet, plan, documentation=documentation)
 
         if result.get("valid", False):
             print(f"[Validation] Code is valid on attempt {attempt + 1}")
-            return code
+            return code_snippet
 
         print(f"[Validation] Errors detected (attempt {attempt + 1}):")
         print(json.dumps(result, indent=4))
 
-        # Repair code
-        code = repair_code(code, result, documentation=documentation)
+        if attempt < max_attempts - 1:
+            # Repair code
+            code_snippet = repair_code(code_snippet, result, documentation=documentation)
 
         print()
         print("[Generation Result]")
-        print(code)
+        print(code_snippet)
         print()
 
     raise RuntimeError(f"Unable to generate valid code after {max_attempts} attempts.")

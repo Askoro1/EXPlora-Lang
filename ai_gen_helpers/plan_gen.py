@@ -99,11 +99,9 @@ User request:
 ---
 
 Context:
-- Current function context (AST or code):  
-{CURRENT_FUNCTION_CONTEXT}
 
-- Full program context (AST or code):  
-{PROGRAM_CONTEXT}
+- Current program context (code):  
+{CONTEXT}
 
 - EXPLora Documentation:
 {DOCUMENTATION}
@@ -119,15 +117,13 @@ with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r") as documentati
 
 
 def generate_plan(request: str,
-                  current_func_context: str = "None",
-                  program_context: str = "None",
+                  context: str = "None",
                   documentation: str = "None",
                   dev_notes: str = "None") -> dict:
 
     user_prompt = USER_PROMPT.format(
         REQUEST=request,
-        CURRENT_FUNCTION_CONTEXT=current_func_context,
-        PROGRAM_CONTEXT=program_context,
+        CONTEXT=context,
         DOCUMENTATION=documentation,
         DEVELOPER_NOTES=dev_notes,
     )

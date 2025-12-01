@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
 from ..ast_nodes import *
-from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, build)
+from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, build, StopRecursion)
 from ..codegen_pipeline import codegen_pipeline
 
 # ----- Builtins -----
@@ -135,19 +135,16 @@ def _builtin_write_char(args: List[RuntimeValue]) -> RuntimeValue:
     return RuntimeValue(None, static_type=Type(base_type=PrimitiveType("unit"), dimension=0))
 
 
-def _builtin_ai_code_gen(args: List[RuntimeValue], code=None) -> str:
+def _builtin_ai_code_gen(args: List[RuntimeValue], context_strategy="full", code=None) -> str:
     if len(args) != 1:
         raise RuntimeTypeError("`AI` expects exactly one argument: a prompt (string)")
     val = args[0].value
     if not isinstance(val, str):
         raise RuntimeTypeError("prompt must be a string")
 
-    # create context
-    # ...
-
-    output = codegen_pipeline(val, context="None", plan_check="both", generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
-    code = output["code"]
-
+    output = codegen_pipeline(val, code=code, context_strategy=context_strategy, plan_check="both", generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
+    upd_code = output["code"]
+    raise StopRecursion(upd_code)
 
 
 BUILTINS = {
@@ -158,4 +155,5 @@ BUILTINS = {
     'size':  _builtin_size,
     'read_char': _builtin_read_char,
     'write_char': _builtin_write_char,
+    'AI': _builtin_ai_code_gen,
 }

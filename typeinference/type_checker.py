@@ -27,7 +27,7 @@ def broadcast_dimensions(param_dims: list[int], arg_dims: list[int]) -> int:
             raise TypeError(f"Cannot broadcast dimensions {p} and {a}")
     return max_dim
 
-def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.Type]) -> ast_nodes.Type:
+def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.Type], builtins_set: set[str]) -> ast_nodes.Type:
     """
     Takes an expression as input and returns its type as output.
 
@@ -55,10 +55,10 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
         # and dimension_size + 1 (since an array of scalars is a vector, array
         # of vectors is a matrix, etc.
         case ast_nodes.ArrayLiteral(value):
-            first_elem_type = infer_expression_type(value[0], env)
+            first_elem_type = infer_expression_type(value[0], env, builtins_set)
 
             for element in value[1:]:
-                elem_type = infer_expression_type(element, env)
+                elem_type = infer_expression_type(element, env, builtins_set)
                 if elem_type != first_elem_type:
                     raise TypeError(f"Array types are not homogeneous: {first_elem_type}")
                 if elem_type.dimension != first_elem_type.dimension:
@@ -81,7 +81,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 lambda_env[p.name] = p.type
 
             # Infer the return type from the body expression
-            body_type = infer_expression_type(body, lambda_env)
+            body_type = infer_expression_type(body, lambda_env, builtins_set)
 
             # Build the return type from parameter and return types
             fn_base = ast_nodes.FunctionType(
@@ -122,7 +122,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
 
             # type-check each provided field
             for fname, fexpr in field_values.items():
-                vtype = infer_expression_type(fexpr, env)
+                vtype = infer_expression_type(fexpr, env, builtins_set)
                 etype = declared_fields[fname]
                 if vtype.base_type != etype.base_type or vtype.dimension != etype.dimension:
                     raise TypeError(
@@ -132,12 +132,14 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(declared_rec_type.base_type, 0)
 
         case ast_nodes.VarRef(name):
-            if name not in env:
+            if name not in env and name not in builtins_set:
                 raise TypeError(f"Variable name '{name}' is not in the environment.")
-            return env[name]
+            else:
+                if name in env:
+                    return env[name]
 
         case ast_nodes.FieldRef(record, field_name):
-            record_type = infer_expression_type(record, env)
+            record_type = infer_expression_type(record, env, builtins_set)
             if not isinstance(record_type.base_type, ast_nodes.RecordType):
                 raise TypeError(f"Cannot access field '{field_name}' on non-record type {record_type}")
 
@@ -156,47 +158,50 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return ast_nodes.Type(field_type.base_type, field_type.dimension + record_type.dimension)
 
         case ast_nodes.FunctionCall(function, arguments):
-            function_type = infer_expression_type(function, env)
+            function_type = infer_expression_type(function, env, builtins_set)
 
-            if not isinstance(function_type.base_type, ast_nodes.FunctionType):
-                raise TypeError(f"Trying to call non-function value of type {function_type}")
+            if function.name not in builtins_set:
+                if not isinstance(function_type.base_type, ast_nodes.FunctionType):
+                    raise TypeError(f"Trying to call non-function value of type {function_type}")
 
-            # Assume that our arguments are typed already
-            arg_types = [infer_expression_type(arg, env) for arg in arguments]
-            param_types = function_type.base_type.param_types
+                # Assume that our arguments are typed already
+                arg_types = [infer_expression_type(arg, env, builtins_set) for arg in arguments]
+                param_types = function_type.base_type.param_types
 
-            # If the number of expected parameters differs from the actually typed out ones
-            if len(arg_types) != len(param_types):
-                raise TypeError(f"Argument count mismatch: expected {len(param_types)}, got {len(arg_types)}")
+                # If the number of expected parameters differs from the actually typed out ones
+                if len(arg_types) != len(param_types):
+                    raise TypeError(f"Argument count mismatch: expected {len(param_types)}, got {len(arg_types)}")
 
-            # Check base-type compatibility and collect dimensions
-            for a_t, p_t in zip(arg_types, param_types):
-                if a_t.base_type != p_t.base_type:
-                    raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
+                # Check base-type compatibility and collect dimensions
+                for a_t, p_t in zip(arg_types, param_types):
+                    if a_t.base_type != p_t.base_type:
+                        raise TypeError(f"Argument type mismatch: expected {p_t.base_type}, got {a_t.base_type}")
 
-            # Compute broadcasted dimension for all parameters and arguments
-            param_dims = [p.dimension for p in param_types]
-            arg_dims = [a.dimension for a in arg_types]
+                # Compute broadcasted dimension for all parameters and arguments
+                param_dims = [p.dimension for p in param_types]
+                arg_dims = [a.dimension for a in arg_types]
 
-            try:
-                # if any two argument dimensions are incompatible, fail
-                for i in range(len(arg_dims)):
-                    for j in range(i + 1, len(arg_dims)):
-                        _ = broadcast_dimensions([arg_dims[i]], [arg_dims[j]])
-                broadcasted_dim = max(arg_dims)
-            except TypeError as e:
-                raise TypeError(f"Cannot broadcast in call to function '{getattr(function, 'name', '<lambda>')}': {e}")
+                try:
+                    # if any two argument dimensions are incompatible, fail
+                    for i in range(len(arg_dims)):
+                        for j in range(i + 1, len(arg_dims)):
+                            _ = broadcast_dimensions([arg_dims[i]], [arg_dims[j]])
+                    broadcasted_dim = max(arg_dims)
+                except TypeError as e:
+                    raise TypeError(f"Cannot broadcast in call to function '{getattr(function, 'name', '<lambda>')}': {e}")
 
-            ret_type = function_type.base_type.return_type
-            return ast_nodes.Type(ret_type.base_type, ret_type.dimension + broadcasted_dim)
+                ret_type = function_type.base_type.return_type
+                return ast_nodes.Type(ret_type.base_type, ret_type.dimension + broadcasted_dim)
+            else:
+                return None
 
         case ast_nodes.OperatorCall(operator, operands):
             # Indexing operator: takes an array and an index and returns the element type
             if operator in ("[]", "index"):
                 if len(operands) != 2:
                     raise TypeError("Indexing expects exactly two operands: array and index")
-                arr_type = infer_expression_type(operands[0], env)
-                idx_type = infer_expression_type(operands[1], env)
+                arr_type = infer_expression_type(operands[0], env, builtins_set)
+                idx_type = infer_expression_type(operands[1], env, builtins_set)
                 # Index must be an int scalar (dimension 0)
                 if not (
                     isinstance(idx_type.base_type, ast_nodes.PrimitiveType)
@@ -211,7 +216,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                 return ast_nodes.Type(arr_type.base_type, arr_type.dimension - 1)
 
             # Obtain the types of all operands
-            operand_types = [infer_expression_type(op, env) for op in operands]
+            operand_types = [infer_expression_type(op, env, builtins_set) for op in operands]
             first_type = operand_types[0]
 
             # Special case: unary sizeof operator returns the size of the outermost
@@ -249,7 +254,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             for stmt in statements:
                 match stmt:
                     case ast_nodes.ExprStmt(expression):
-                        last_type = infer_expression_type(expression, block_env)
+                        last_type = infer_expression_type(expression, block_env, builtins_set)
 
                     case ast_nodes.Assignment(lvalue, rvalue):
                         match lvalue:
@@ -258,11 +263,11 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                     raise TypeError(f"Variable '{name}' not declared before assignment")
                                 ltype = block_env[name]
                             case ast_nodes.FieldRef():
-                                ltype = infer_expression_type(lvalue, block_env)
+                                ltype = infer_expression_type(lvalue, block_env, builtins_set)
                             case _:
                                 raise TypeError("Invalid assignment target")
 
-                        rtype = infer_expression_type(rvalue, block_env)
+                        rtype = infer_expression_type(rvalue, block_env, builtins_set)
                         if (ltype.base_type != rtype.base_type) or (ltype.dimension != rtype.dimension):
                             raise TypeError(f"Assignment mismatch: {ltype} vs {rtype}")
 
@@ -271,7 +276,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                     case ast_nodes.DeclStmt(declaration):
                         match declaration:
                             case ast_nodes.VarDecl(name, type_, mutable, initializer):
-                                init_type = infer_expression_type(initializer, block_env) if initializer else None
+                                init_type = infer_expression_type(initializer, block_env, builtins_set) if initializer else None
                                 if type_ and init_type and (
                                         init_type.base_type != type_.base_type or init_type.dimension != type_.dimension
                                 ):
@@ -286,7 +291,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                     if field.type is None:
                                         raise TypeError(f"Field '{field.name}' in record '{name}' has no type")
                                     if field.initializer:
-                                        infer_expression_type(field.initializer, block_env)
+                                        infer_expression_type(field.initializer, block_env, builtins_set)
                                 block_env[name] = ast_nodes.Type(ast_nodes.RecordType(name), 0)
 
                             case ast_nodes.FunctionDef():
@@ -295,7 +300,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                                 pass
 
                     case ast_nodes.WhileLoop(condition, body):
-                        cond_type = infer_expression_type(condition, block_env)
+                        cond_type = infer_expression_type(condition, block_env, builtins_set)
                         if not (isinstance(cond_type.base_type, ast_nodes.PrimitiveType)
                                 and cond_type.base_type.name == "bool"
                                 and cond_type.dimension == 0):
@@ -309,7 +314,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
 
                         # body is a Statement as per specifications. The function expects an Expression.
                         # Statement is wrapped in Block to reuse the statement handling in Block.
-                        infer_expression_type(ast_nodes.Block([body_statement]), block_env)
+                        infer_expression_type(ast_nodes.Block([body_statement]), block_env, builtins_set)
 
                         last_type = ast_nodes.Type(ast_nodes.PrimitiveType("unit"), 0)
 
@@ -319,15 +324,15 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
             return last_type
 
         case ast_nodes.IfExpr(condition, then_expr, else_expr):
-            condition_type = infer_expression_type(condition, env)
+            condition_type = infer_expression_type(condition, env, builtins_set)
 
             if not (isinstance(condition_type.base_type, ast_nodes.PrimitiveType)
                     and condition_type.base_type.name == "bool"
                     and condition_type.dimension == 0):
                 raise TypeError(f"The condition of the if-expression must be of type bool, but it is {condition_type} instead.")
 
-            then_expr_type = infer_expression_type(then_expr, env)
-            else_expr_type = infer_expression_type(else_expr, env)
+            then_expr_type = infer_expression_type(then_expr, env, builtins_set)
+            else_expr_type = infer_expression_type(else_expr, env, builtins_set)
 
             if then_expr_type.base_type != else_expr_type.base_type:
                 raise TypeError(f"Branches must match types: {then_expr_type.base_type} | {else_expr_type.base_type}")

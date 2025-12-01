@@ -21,36 +21,33 @@ def main():
         print(f"File '{filename}' not found.")
         sys.exit(1)
 
-    #try:
-    # Tokenize
-    tokens = tokenize(code_)
+    while True:
+        try:
+            print("\n--- Running ---\n")
+            # Tokenize
+            tokens = tokenize(code_)
 
-    # Parse
-    parser = Parser(tokens)
-    ast = parser.parse()
+            # Parse
+            parser = Parser(tokens)
+            ast = parser.parse()
 
-    # for debug
-    #with open('output.txt', 'w', encoding='utf-8') as f:
-        # pprint(ast, stream=f)
-        # printer = PrettyPrinter()
-        # pretty_code = printer.pprint(ast)
-        # print(pretty_code, file=f)
+            # Infer Types
+            tast = type_annotate_program(ast)
 
-    # Infer Types
-    tast = type_annotate_program(ast)
+            with open('output.txt', 'w', encoding='utf-8') as f:
+                pprint(tast, stream=f)
 
-    with open('output.txt', 'w', encoding='utf-8') as f:
-        pprint(tast, stream=f)
+            # Interpret TAST
+            interp = Interpreter(tast, code=code_)
+            global_frame = interp.run()
+            # Call main()
+            call = FunctionCall(function=VarRef("main"), arguments=[])
+            print(interp.eval_expression(call, global_frame).value)
+            sys.exit(0)
+        except StopRecursion as upd_code:
+            code_ = str(upd_code)
+            continue
 
-    # Interpret TAST
-    interp = Interpreter(tast)
-    global_frame = interp.run()
-
-    # Call main()
-    call = FunctionCall(function=VarRef("main"), arguments=[])
-    print(interp.eval_expression(call, global_frame).value)
-
-    sys.exit(0)
     #except Exception as e:
     #   print(f"{type(e).__name__}: {e}")
     #   sys.exit(1)
