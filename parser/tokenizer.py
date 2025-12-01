@@ -37,11 +37,14 @@ class Token:
 # ------------------------
 TOKEN_SPEC = [
     ("WHITESPACE", r"[ \t\n\r]+"),
-    ("COMMENT", r"//[^\n]*"),
-    ("MCOMMENT", r"/\*.*?\*/"),
-    ("NUMBER", r"\d+(\.\d+)?([eE][+-]?\d+)?"),
+
     ("CHAR", r"'(\\.|[^\\'])'"),
     ("STRING", r"\"(\\.|[^\"])*\""),
+
+    ("COMMENT", r"//[^\n]*"),
+    ("MCOMMENT", r"/\*.*\*/"),
+
+    ("NUMBER", r"\d+(\.\d+)?([eE][+-]?\d+)?"),
     ("ID", r"[A-Za-z_][A-Za-z0-9_]*"),
     # Multi-char operators
     ("OP", r"==|!=|<=|>=|\+\+|--|\+=|-=|\*=|/=|&&|\|\||<<|>>|->|=>"),
@@ -62,10 +65,57 @@ KEYWORDS = {
 }
 
 
+def strip_comments(code: str) -> str:
+    result = []
+    i = 0
+    n = len(code)
+    in_string = False
+    in_char = False
+
+    while i < n:
+        c = code[i]
+
+        # --- STRING ---
+        if not in_char and c == '"' and (i == 0 or code[i - 1] != '\\'):
+            in_string = not in_string
+            result.append(c)
+            i += 1
+            continue
+
+        # --- CHAR ---
+        if not in_string and c == "'" and (i == 0 or code[i - 1] != '\\'):
+            in_char = not in_char
+            result.append(c)
+            i += 1
+            continue
+
+        # --- LINE COMMENT: // ---
+        if not in_string and not in_char and c == '/' and i + 1 < n and code[i + 1] == '/':
+            i += 2
+            while i < n and code[i] != '\n':
+                i += 1
+            continue
+
+        # --- BLOCK COMMENT: /* ... */ ---
+        if not in_string and not in_char and c == '/' and i + 1 < n and code[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (code[i] == '*' and code[i + 1] == '/'):
+                i += 1
+            i += 2
+            continue
+
+        # normal char
+        result.append(c)
+        i += 1
+
+    return "".join(result)
+
+
 # ------------------------
 # Tokenizer
 # ------------------------
 def tokenize(code: str) -> List[Token]:
+    code = strip_comments(code)
     tokens: List[Token] = []
 
     for m in MASTER_RE.finditer(code):
@@ -111,13 +161,19 @@ if __name__ == "__main__":
     int main() {
         int x = 42;
         float y = 3.14;
-        char c = 'a';
-        string s = "Hello, world!";
+        char c = 'a'; // this is a comment
+        string s = "Hello, world!"; // this is another comment
+        
+        string s1 = "this is not // a comment";
+        string t1 = "this /* is also not */ a comment";
 
         Record Point { x, y } 
         Point p = Point(1, 2);
 
         auto f = [](int x, int y) -> int {
+            /* This is a
+               multi-line
+               comment */
             return x + y;
         };
 
