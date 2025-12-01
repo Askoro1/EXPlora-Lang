@@ -53,10 +53,12 @@ class CodeT5EmbeddingService:
                     self.model_name,
                     cache_dir=self.cache_dir,
                     use_fast=True,
+                    trust_remote_code=True,
                 )
                 model = AutoModel.from_pretrained(
                     self.model_name,
                     cache_dir=self.cache_dir,
+                    trust_remote_code=True,
                 )
                 model.to(self.device)
                 model.eval()
@@ -82,9 +84,21 @@ class CodeT5EmbeddingService:
         with torch.no_grad():
             outputs = self._model(**inputs)
 
-        # Mean pooling gives a stable program-level representation.
-        hidden_state = outputs.last_hidden_state  # (1, seq_len, hidden_dim)
-        embedding = hidden_state.mean(dim=1).squeeze(0)  # (hidden_dim,)
+        if hasattr(outputs, "last_hidden_state"):
+            hidden_state = outputs.last_hidden_state
+        elif isinstance(outputs, (tuple, list)):
+            hidden_state = outputs[0]
+        else:
+            hidden_state = outputs
+
+        if hidden_state.dim() == 3:
+            # BaseModelOutput: mean-pool over the sequence dimension.
+            embedding = hidden_state.mean(dim=1).squeeze(0)
+        elif hidden_state.dim() == 2:
+            # Already pooled embeddings (batch, hidden_dim).
+            embedding = hidden_state.squeeze(0)
+        else:
+            raise ValueError("Unexpected embedding shape returned by the model.")
 
         normalized = torch.nn.functional.normalize(embedding, p=2, dim=0)
         return normalized.cpu()
@@ -113,8 +127,9 @@ def compare_programs(
     embedding_a = svc.embed(code_a)
     embedding_b = svc.embed(code_b)
     similarity = torch.nn.functional.cosine_similarity(
-        embedding_a.unsqueeze(0),
-        embedding_b.unsqueeze(0),
+        embedding_a,
+        embedding_b,
+        dim=0,
     )
     return similarity.item()
 

@@ -72,8 +72,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         progress.set_description("Computing similarity")
         similarity = float(
             torch.nn.functional.cosine_similarity(
-                embedding_a.unsqueeze(0),
-                embedding_b.unsqueeze(0),
+                embedding_a,
+                embedding_b,
+                dim=0,
             ).item()
         )
         progress.update(1)
