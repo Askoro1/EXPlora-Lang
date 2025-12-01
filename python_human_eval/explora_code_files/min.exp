@@ -1,0 +1,10 @@
+//int min(int a, int b) {
+//    AI("Return the minimum of a and b.");
+//}
+int min(int a, int b) {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}

@@ -1,0 +1,13 @@
+//int same_parity(int a, int b) {
+//    AI("Return 1 if a and b have the same parity (both even or both odd), otherwise return 0.");
+//}
+int same_parity(int a, int b) {
+    int parity_a = a % 2;
+    int parity_b = b % 2;
+
+    if (parity_a == parity_b) {
+        return 1;
+    } else {
+        return 0;
+    }
+}

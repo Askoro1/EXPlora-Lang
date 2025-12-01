@@ -1,0 +1,10 @@
+//int is_odd(int x) {
+//    AI("Return 1 if x is odd, otherwise return 0.");
+//}
+int is_odd(int x) {
+    if (x % 2 != 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}

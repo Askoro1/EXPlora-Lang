@@ -1,0 +1,20 @@
+//int max3(int a, int b, int c) {
+//    AI("Return the maximum of a, b, and c.");
+//}
+int max3(int a, int b, int c) {
+    int max_val = a;
+    if (b > max_val) {
+        max_val = b;
+    }
+    if (c > max_val) {
+        max_val = c;
+    }
+    return max_val;
+}
+
+int main() {
+    int result1 = max3(10, 5, 20);
+    int result2 = max3(7, 15, 3);
+    int result3 = max3(100, 50, 75);
+    return result1; // Example return, could be any of the results or a combination
+}

@@ -1,0 +1,18 @@
+//int dot_product(int[] xs, int[] ys) {
+//    AI("Return the dot product of xs and ys.");
+//}
+int dot_product(int[] xs, int[] ys) {
+    if (xs.length != ys.length) {
+        return 0;
+    }
+
+    int dotProductSum = 0;
+    int i = 0;
+    while (i < xs.length) {
+        int product = xs[i] * ys[i];
+        dotProductSum = dotProductSum + product;
+        i = i + 1;
+    }
+
+    return dotProductSum;
+}

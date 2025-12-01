@@ -1,0 +1,10 @@
+//int diff(int a, int b) {
+//    AI("Return the absolute difference between a and b.");
+//}
+int diff(int a, int b) {
+    int difference = a - b;
+    if (difference < 0) {
+        difference = -difference;
+    }
+    return difference;
+}

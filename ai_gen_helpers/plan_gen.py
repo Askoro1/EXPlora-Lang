@@ -114,7 +114,7 @@ Context:
 Please output the plan as a JSON object conforming to the structure described in the system prompt.
 """
 
-with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r") as documentation_file:
+with open("./EXPlora-Lang/ai_gen_helpers/DOCUMENTATION.txt", "r", encoding="utf-8", errors="ignore") as documentation_file:
     DOCUMENTATION = documentation_file.read()
 
 

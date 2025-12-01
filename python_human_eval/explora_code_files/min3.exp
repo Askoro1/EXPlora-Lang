@@ -1,0 +1,20 @@
+//int min3(int a, int b, int c) {
+//    AI("Return the minimum of a, b, and c.");
+//}
+int min3(int a, int b, int c) {
+    int min_ab;
+    if (a < b) {
+        min_ab = a;
+    } else {
+        min_ab = b;
+    }
+
+    int overall_min;
+    if (min_ab < c) {
+        overall_min = min_ab;
+    } else {
+        overall_min = c;
+    }
+
+    return overall_min;
+}

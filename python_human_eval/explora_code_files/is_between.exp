@@ -1,0 +1,10 @@
+//int is_between(int x, int lo, int hi) {
+//    AI("Return 1 if x is between lo and hi inclusive (lo <= x <= hi), otherwise return 0.");
+//}
+int is_between(int x, int lo, int hi) {
+    if ((x >= lo) && (x <= hi)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}

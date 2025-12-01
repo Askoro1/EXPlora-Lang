@@ -1,0 +1,12 @@
+//int clamp_range(int x, int lo, int hi) {
+//    AI("Clamp x to the inclusive range [lo, hi]: return lo if x < lo, hi if x > hi, otherwise x.");
+//}
+int clamp_range(int x, int lo, int hi) {
+    if (x < lo) {
+        return lo;
+    } else if (x > hi) {
+        return hi;
+    } else {
+        return x;
+    }
+}

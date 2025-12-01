@@ -1,0 +1,12 @@
+//int sum_array(int[] xs) {
+//    AI("Return the sum of all integers in xs.");
+//}
+int sum_array(int[] xs) {
+    int total_sum = 0;
+    int i = 0;
+    while (i < xs.length) {
+        total_sum = total_sum + xs[i];
+        i = i + 1;
+    }
+    return total_sum;
+}
