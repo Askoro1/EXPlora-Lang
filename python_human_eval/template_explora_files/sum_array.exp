@@ -1,0 +1,11 @@
+int sum_array(int[] xs, int n) {
+    int i = 0;
+    int acc = 0;
+
+    while (i < n) {
+        acc = acc + xs[i];
+        i = i + 1;
+    }
+
+    return acc;
+}
