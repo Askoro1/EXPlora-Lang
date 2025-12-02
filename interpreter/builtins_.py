@@ -142,7 +142,7 @@ def _builtin_ai_code_gen(args: List[RuntimeValue], context_strategy="full", code
     if not isinstance(val, str):
         raise RuntimeTypeError("prompt must be a string")
 
-    output = codegen_pipeline(val, code=code, context_strategy=context_strategy, plan_check="both", generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
+    output = codegen_pipeline(val, code=code, context_strategy=context_strategy)
     upd_code = output["code"]
     raise StopRecursion(upd_code)
 

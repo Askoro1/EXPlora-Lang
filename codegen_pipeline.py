@@ -49,7 +49,53 @@ def replace_first_ai_block(code: str, replacement: str) -> str:
     return response.text.strip()
 
 
-def codegen_pipeline(prompt: str, code: str = "None", context_strategy: str = "None", plan_check: str = "manual", generator_name: str = "GENERATOR_MODEL", judge_name: str = "JUDGE_MODEL",):
+def judge_plan(user_intent, plan):
+    prompt = f"""
+    You are an expert validator of execution plans.
+
+    Your task:
+    Check whether the EXECUTION PLAN correctly and completely matches the USER INTENT.
+
+    You must evaluate:
+    1. Whether all key requirements from the USER INTENT are present in the EXECUTION PLAN
+    2. Whether the plan introduces anything NOT requested by the user
+    3. Whether the interpretation of the user intent is correct and not distorted
+    4. Whether anything important is missing, contradictory, or misunderstood
+
+    You must be **strict and literal**.
+
+    Your output must follow exactly this format:
+
+    VERDICT: <one of: PASS | FAIL>
+
+    CORRECTIONS/MISSING/UNWANTED (if there are ANY):
+    - <what should be changed to make the plan correct 1>
+    - <what should be changed to make the plan correct 2>
+    - <...>
+
+    Do NOT rewrite the whole plan.
+    Do NOT generate code.
+    Do NOT explain anything else.
+
+    USER INTENT:
+    {user_intent}
+
+    EXECUTION PLAN:
+    {plan}
+    """
+
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.2
+        )
+    )
+
+    return response.text.strip()
+
+
+def codegen_pipeline(prompt_: str, code: str = "None", context_strategy: str = "None"):
     run_id = str(uuid.uuid4())
 
     curr_attempt = 0
@@ -69,34 +115,22 @@ def codegen_pipeline(prompt: str, code: str = "None", context_strategy: str = "N
         context = "None"
 
     # Generate the plan
-    plan = generate_plan(prompt, context=context, documentation=documentation)
+    print("\n--- Generating Plan... ---\n")
+    plan = generate_plan(prompt_, context=context, documentation=documentation)
     plan_str = json.dumps(plan)
+    print("[Generation Result]")
+    print(plan_str)
 
     # Validate the plan
-    ok, errors, plan_result = validate_plan_json(plan_str)
-
-    if plan_check == "manual":
-        mode = "MANUAL"
-    elif plan_check == "LLM":
-        mode = "LLM"
-    else:
-        mode = "both"
+    verdict = judge_plan(prompt_, plan_str)
+    print()
+    print("[LLM-Judge Verdict]")
+    print(verdict)
+    print()
 
     # If there's a valid plan
-    if ok and plan_result is not None:
-        log_plan_attempt(
-            run_id=run_id,
-            attempt=curr_attempt,
-            validity="valid",
-            reason="",
-            plan_txt=plan_str,
-            mode=mode,
-            generator_name=generator_name,
-            judge_name=judge_name,
-        )
+    if "VERDICT: PASS" in verdict:
         print("\nPlan is valid.\n")
-
-        plan = plan_result
 
         ans = input("Would you like to check the plan (y/n)? ")
         if ans == "y":
@@ -107,75 +141,36 @@ def codegen_pipeline(prompt: str, code: str = "None", context_strategy: str = "N
                 )
             plan = edited_plan
     else:
-        # Otherwise it means the plan was invalid
-        error_msg = "; ".join(errors or ["unknown validation error"])
+        for _ in range(MAX_RETRIES):
+            curr_attempt += 1
+            print(f"[Attempt {curr_attempt}]")
+            print()
+            plan = generate_plan(prompt_, context=context, documentation=documentation, dev_notes="\n".join(verdict.split("\n")[1:]))
+            plan_str = json.dumps(plan)
+            print("[Generation Result]")
+            print(plan_str)
+            verdict = judge_plan(prompt_, plan_str)
+            print()
+            print("[LLM-Judge Verdict]")
+            print(verdict)
+            print()
+            if "VERDICT: PASS" in verdict:
+                print("\nPlan is valid.\n")
 
-        if plan_check == "LLM" or plan_check == "both":
-            judge_feedback = None  # This gets used later if the plan fails validation
+                ans = input("Would you like to check the plan (y/n)? ")
+                if ans == "y":
+                    edited_plan = manual_edit_plan(plan, [])
+                    if edited_plan is None:
+                        raise RuntimeError(
+                            f"No valid plan and manual edit cancelled (run_id={run_id})."
+                        )
+                    plan = edited_plan
 
-            for _ in range(MAX_RETRIES):
-                # Auto-retry path (LLM judge + generator) - skeleton
-                curr_attempt += 1
-                log_plan_attempt(
-                    run_id=run_id,
-                    attempt=curr_attempt,
-                    validity="invalid",
-                    reason=error_msg,
-                    plan_txt=plan_str,
-                    mode=mode,
-                    generator_name=generator_name,
-                    judge_name=judge_name,
-                )
-                print("Plan was invalid : LLM Check.")
-                # TODO: call judge LLM here and update judge_feedback for next attempt
-                judge_feedback = error_msg
+                break
 
-                # This part will be similar to the manual check
+        if "VERDICT: PASS" not in verdict:
+            raise RuntimeError(f"Unable to generate valid plan after {MAX_RETRIES} attempts.")
 
-                plan_result2 = None
-
-            if ok and plan_result2 is not None:
-                plan = plan_result2
-
-        if plan_check == "manual" or plan_check == "both":
-            # Manual correction loop: keep editing until valid or user cancels
-            while True:
-                curr_attempt += 1
-                log_plan_attempt(
-                    run_id=run_id,
-                    attempt=curr_attempt,
-                    validity="invalid",
-                    reason=error_msg,
-                    plan_txt=plan_str,
-                    mode=mode,
-                )
-
-                edited_plan = manual_edit_plan(plan, errors or [])
-                if edited_plan is None:
-                    raise RuntimeError(
-                        f"No valid plan and manual edit cancelled (run_id={run_id})."
-                    )
-
-                ok2, errors2, plan_result2 = validate_plan_json(edited_plan)
-
-                if ok2 and plan_result2 is not None:
-                    log_plan_attempt(
-                        run_id=run_id,
-                        attempt=curr_attempt,
-                        validity="valid",
-                        reason="manual correction",
-                        plan_txt=edited_plan,
-                        mode=mode,
-                    )
-                    print("Plan became valid after manual correction.")
-
-                    plan = plan_result2
-                    break
-                else:
-                    # if still invalid, update state and loop again
-                    error_msg = "; ".join(errors2 or ["unknown validation error"])
-                    errors = errors2[:]
-                    plan_str = edited_plan
 
     # Code generation
     print("\n--- Generating EXPlora code... ---\n")
@@ -202,4 +197,4 @@ def codegen_pipeline(prompt: str, code: str = "None", context_strategy: str = "N
 
 if __name__ == "__main__":
     user_request = "Read a CSV file, group by `category` column and calculate mean value by `value` column, then plot a bar chart"
-    codegen_pipeline(user_request, "None", plan_check="manual", generator_name="GENERATOR_MODEL", judge_name="JUDGE_MODEL")
+    codegen_pipeline(user_request, "None")
