@@ -68,8 +68,6 @@ def codegen_pipeline(prompt: str, code: str = "None", context_strategy: str = "N
     else:
         context = "None"
 
-    print(f"Context:\n{context}")
-
     # Generate the plan
     plan = generate_plan(prompt, context=context, documentation=documentation)
     plan_str = json.dumps(plan)
