@@ -139,7 +139,8 @@ class Parser:
         dimension = []
         while self.accept(TokenType.OP, "["):
             size = None
-            if self.peek().type == TokenType.NUMBER:
+            print(self.peek())
+            if self.peek().type == TokenType.NUMBER or self.peek().type == TokenType.ID:
                 size = int(self.next().value)
             self.expect(TokenType.OP, "]")
             dimension.append(size)

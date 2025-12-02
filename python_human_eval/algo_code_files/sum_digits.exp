@@ -1,0 +1,25 @@
+int sum_digits(int n) {
+    int x = n;
+    int s = 0;
+
+    if (x < 0) {
+        x = 0 - x;
+    } else {
+        x = x;
+    }
+
+    while (x > 0) {
+        int d = x % 10;
+        s = s + d;
+        x = x / 10;       
+    }
+
+    return s;
+}
+
+int main() {
+    int n = 12345;
+    int result = sum_digits(n);
+    print(result);
+    return result;
+}

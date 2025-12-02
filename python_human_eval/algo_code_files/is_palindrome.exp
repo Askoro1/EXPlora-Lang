@@ -21,3 +21,9 @@ int is_palindrome(int n) {
         return 0;
     }
 }
+
+int main() {
+    int n = 12345;
+    int result = is_palindrome(n);
+    return result;
+}

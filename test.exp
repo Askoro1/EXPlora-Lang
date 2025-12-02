@@ -45,7 +45,7 @@ int main() {
 
     while (x < 226) {
         x = x + 2;
-        AI("Write a code snippet, where x is multiplied by 2");
+        AI("Write a code snippet, where x is multiplied by 2 and the result is assigned back to x");
     }
 
     int result = add(x, 5);

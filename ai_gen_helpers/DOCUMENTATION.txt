@@ -97,6 +97,15 @@ Example:
 
 Functions must always end with `return` unless return type is unit.
 
+Also, there are several builtin-functions:
+    - print - print args
+    - zeros - generate an array of zeros of the given `shape` and with given `type`
+    - ones - generate an array of ones of the given `shape` and with given `type`
+    - shape - return shape of array
+    - size - return the outermost dimension of array
+    - read_char - read one char from stdin
+    - write_char - print one char
+
 
 ------------------------------------------------------------
 5. RECORDS

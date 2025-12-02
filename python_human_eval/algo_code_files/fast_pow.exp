@@ -1,0 +1,27 @@
+int fast_pow(int a, int b) {
+    int result = 1;
+    int base = a;
+    int exp = b;
+
+    while (exp > 0) {
+        if (exp % 2 == 1) {
+            result = result * base;
+        } else {
+            int dummy = 0;
+        }
+        base = base * base;
+
+        exp = exp / 2;
+    }
+
+    return result;
+}
+
+int main() {
+    int a = 2;
+    int b = 10;
+
+    int r = fast_pow(a, b);
+
+    return r;
+}

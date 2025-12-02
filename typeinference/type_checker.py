@@ -278,7 +278,7 @@ def infer_expression_type(expr: ast_nodes.Expression, env: dict[str, ast_nodes.T
                             case ast_nodes.VarDecl(name, type_, mutable, initializer):
                                 init_type = infer_expression_type(initializer, block_env, builtins_set) if initializer else None
                                 if type_ and init_type and (
-                                        init_type.base_type != type_.base_type or init_type.dimension != type_.dimension
+                                        init_type.base_type != type_.base_type
                                 ):
                                     raise TypeError(f"Initializer type mismatch for '{name}': {init_type} vs {type_}")
                                 var_type = type_ or init_type

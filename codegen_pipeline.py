@@ -62,7 +62,7 @@ def judge_plan(user_intent, plan):
     3. Whether the interpretation of the user intent is correct and not distorted
     4. Whether anything important is missing, contradictory, or misunderstood
 
-    You must be **strict and literal**.
+    You must be strict and literal.
 
     Your output must follow exactly this format:
 

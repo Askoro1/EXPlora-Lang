@@ -47,7 +47,7 @@ def annotate_declaration(declaration: ast_nodes.Declaration, env: dict[str, ast_
 
                 # Check if declared & inferred values agree on dimension and type
                 if declared_type and inferred_type and (
-                        inferred_type.base_type != declared_type.base_type or inferred_type.dimension != declared_type.dimension
+                        inferred_type.base_type != declared_type.base_type
                 ):
                     raise TypeError(f"Initializer type mismatch for '{name}': {inferred_type} | {declared_type}")
 

@@ -10,7 +10,6 @@ int is_prime(int n) {
                 result = 0;
             } else {
                 int dummy = 0;
-                dummy = dummy;
             }
             i = i + 1;
         }
@@ -21,4 +20,10 @@ int is_prime(int n) {
     } else {
         return 0;
     }
+}
+
+int main() {
+    int n = 73;
+    int result = is_prime(n);
+    return result;
 }

@@ -491,7 +491,11 @@ class Interpreter:
                         if op == '+': res = a + b
                         elif op == '-': res = a - b
                         elif op == '*': res = a * b
-                        elif op == '/': res = a / b
+                        elif op == '/':
+                            if a.dtype == float:
+                                res = a / b
+                            else:
+                                res = a // b
                         elif op == '%': res = a % b
                         elif op == '@': res = a @ b
                         elif op in ('==','!=','<','>','<=','>='):
@@ -523,7 +527,11 @@ class Interpreter:
                     if op == '+': res = a + b
                     elif op == '-': res = a - b
                     elif op == '*': res = a * b
-                    elif op == '/': res = a / b
+                    elif op == '/':
+                        if type(a) == float:
+                            res = a / b
+                        else:
+                            res = a // b
                     elif op == '%': res = a % b
                     elif op == '==': res = a == b
                     elif op == '!=': res = a != b
