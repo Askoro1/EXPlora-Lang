@@ -1,0 +1,102 @@
+int[] append_int(int[] arr, int value) {
+    int[] single = {value};
+    int[] result = arr ++ single;
+    return result;
+}
+
+int[][] append_row(int[][] matrix, int[] row) {
+    int[][] single = {row};
+    int[][] result = matrix ++ single;
+    return result;
+}
+
+int[] set_value(int[] arr, int position, int value) {
+    int length = size(arr);
+    int[] result = {};
+    int index = 0;
+    while (index < length) {
+        int current = arr[index];
+        if (index == position) {
+            result = append_int(result, value);
+        } else {
+            result = append_int(result, current);
+        }
+        index = index + 1;
+    }
+    return result;
+}
+
+int min_key_index(int[] key, int[] visited, int n) {
+    int selected = 0;
+    int initialized = 0;
+    int index = 0;
+    while (index < n) {
+        if (visited[index] == 0) {
+            if (initialized == 0) {
+                selected = index;
+                initialized = 1;
+            } else {
+                if (key[index] < key[selected]) {
+                    selected = index;
+                }
+            }
+        }
+        index = index + 1;
+    }
+    return selected;
+}
+
+int[][] minimum_spanning_tree(int[][] graph, int n) {
+    int INF = 1000000000;
+    int[] parent = {};
+    int[] key = {};
+    int[] visited = {};
+
+    int i = 0;
+    while (i < n) {
+        parent = append_int(parent, -1);
+        key = append_int(key, INF);
+        visited = append_int(visited, 0);
+        i = i + 1;
+    }
+
+    key = set_value(key, 0, 0);
+
+    int iterations = n;
+    int count = 0;
+    while (count < iterations) {
+        int u = min_key_index(key, visited, n);
+        visited = set_value(visited, u, 1);
+
+        int v = 0;
+        while (v < n) {
+            int weight = graph[u][v];
+            if (weight > 0) {
+                if (visited[v] == 0) {
+                    if (weight < key[v]) {
+                        parent = set_value(parent, v, u);
+                        key = set_value(key, v, weight);
+                    }
+                }
+            }
+            v = v + 1;
+        }
+
+        count = count + 1;
+    }
+
+    int[][] edges = {};
+    int vertex = 1;
+    while (vertex < n) {
+        int u = parent[vertex];
+        if (u >= 0) {
+            int weight = graph[vertex][u];
+            int[] edge = {u, vertex, weight};
+            edges = append_row(edges, edge);
+        }
+        vertex = vertex + 1;
+    }
+
+    return edges;
+}
+

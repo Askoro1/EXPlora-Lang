@@ -1,0 +1,41 @@
+int is_substring(string text, int text_length, string pattern, int pattern_length) {
+    if (pattern_length == 0) {
+        return 1;
+    }
+    if (text_length < pattern_length) {
+        return 0;
+    }
+
+    int limit = text_length - pattern_length;
+    int index = 0;
+    int found = 0;
+
+    while (index <= limit) {
+        int match = 1;
+        int inner = 0;
+        while (inner < pattern_length) {
+            int offset = index + inner;
+            char text_char = text[offset];
+            char pattern_char = pattern[inner];
+            if (text_char != pattern_char) {
+                match = 0;
+                inner = pattern_length;
+            } else {
+                inner = inner + 1;
+            }
+        }
+        if (match == 1) {
+            found = 1;
+            index = limit + 1;
+        } else {
+            index = index + 1;
+        }
+    }
+
+    if (found == 1) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+

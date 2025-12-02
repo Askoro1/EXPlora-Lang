@@ -1,0 +1,74 @@
+int[] append_value(int[] arr, int value) {
+    int[] single = {value};
+    int[] result = arr ++ single;
+    return result;
+}
+
+int half(int value) {
+    int result = 0;
+    int remaining = value;
+    while (remaining > 1) {
+        remaining = remaining - 2;
+        result = result + 1;
+    }
+    return result;
+}
+
+int[] slice_range(int[] arr, int start, int end) {
+    int[] result = {};
+    int index = start;
+    while (index < end) {
+        int current = arr[index];
+        result = append_value(result, current);
+        index = index + 1;
+    }
+    return result;
+}
+
+int[] merge_arrays(int[] left, int[] right) {
+    int left_size = size(left);
+    int right_size = size(right);
+    int i = 0;
+    int j = 0;
+    int[] result = {};
+
+    while ((i < left_size) && (j < right_size)) {
+        int left_value = left[i];
+        int right_value = right[j];
+        if (left_value <= right_value) {
+            result = append_value(result, left_value);
+            i = i + 1;
+        } else {
+            result = append_value(result, right_value);
+            j = j + 1;
+        }
+    }
+
+    while (i < left_size) {
+        result = append_value(result, left[i]);
+        i = i + 1;
+    }
+
+    while (j < right_size) {
+        result = append_value(result, right[j]);
+        j = j + 1;
+    }
+
+    return result;
+}
+
+int[] mergesort(int[] arr) {
+    int length = size(arr);
+    if (length <= 1) {
+        return arr;
+    } else {
+        int mid = half(length);
+        int[] left = slice_range(arr, 0, mid);
+        int[] right = slice_range(arr, mid, length);
+        int[] sorted_left = mergesort(left);
+        int[] sorted_right = mergesort(right);
+        int[] merged = merge_arrays(sorted_left, sorted_right);
+        return merged;
+    }
+}
+

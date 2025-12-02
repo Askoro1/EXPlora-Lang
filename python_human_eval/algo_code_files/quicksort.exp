@@ -1,0 +1,40 @@
+int[] append_value(int[] arr, int value) {
+    int[] single = {value};
+    int[] result = arr ++ single;
+    return result;
+}
+
+int[] quicksort(int[] arr) {
+    int length = size(arr);
+    if (length <= 1) {
+        return arr;
+    } else {
+        int pivot = arr[0];
+        int index = 0;
+        int[] less = {};
+        int[] equal = {};
+        int[] greater = {};
+
+        while (index < length) {
+            int current = arr[index];
+            if (current < pivot) {
+                less = append_value(less, current);
+            } else {
+                if (current > pivot) {
+                    greater = append_value(greater, current);
+                } else {
+                    equal = append_value(equal, current);
+                }
+            }
+            index = index + 1;
+        }
+
+        int[] sorted_less = quicksort(less);
+        int[] sorted_greater = quicksort(greater);
+
+        int[] merged = sorted_less ++ equal;
+        int[] result = merged ++ sorted_greater;
+        return result;
+    }
+}
+

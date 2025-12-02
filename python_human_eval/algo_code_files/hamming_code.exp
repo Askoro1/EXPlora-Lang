@@ -1,0 +1,29 @@
+int read_bit(int[] data, int index) {
+    int length = size(data);
+    if (index < length) {
+        return data[index];
+    } else {
+        return 0;
+    }
+}
+
+int parity_value(int a, int b, int c) {
+    int total = a + b + c;
+    int remainder = total % 2;
+    return remainder;
+}
+
+int[] hamming_encode(int[] data) {
+    int d1 = read_bit(data, 0);
+    int d2 = read_bit(data, 1);
+    int d3 = read_bit(data, 2);
+    int d4 = read_bit(data, 3);
+
+    int p1 = parity_value(d1, d2, d4);
+    int p2 = parity_value(d1, d3, d4);
+    int p3 = parity_value(d2, d3, d4);
+
+    int[] code = {p1, p2, d1, p3, d2, d3, d4};
+    return code;
+}
+

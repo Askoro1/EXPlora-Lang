@@ -1,0 +1,59 @@
+int[] append_value(int[] arr, int value) {
+    int[] single = {value};
+    int[] result = arr ++ single;
+    return result;
+}
+
+int[] set_value(int[] arr, int position, int value) {
+    int length = size(arr);
+    int[] result = {};
+    int index = 0;
+    while (index < length) {
+        int current = arr[index];
+        if (index == position) {
+            result = append_value(result, value);
+        } else {
+            result = append_value(result, current);
+        }
+        index = index + 1;
+    }
+    return result;
+}
+
+int longest_increasing_subsequence(int[] arr) {
+    int length = size(arr);
+    if (length == 0) {
+        return 0;
+    }
+
+    int[] dp = {};
+    int fill = 0;
+    while (fill < length) {
+        dp = append_value(dp, 1);
+        fill = fill + 1;
+    }
+
+    int best = 1;
+    int index = 0;
+    while (index < length) {
+        int previous = 0;
+        while (previous < index) {
+            int left = arr[previous];
+            int right = arr[index];
+            if (left < right) {
+                int candidate = dp[previous] + 1;
+                if (candidate > dp[index]) {
+                    dp = set_value(dp, index, candidate);
+                }
+            }
+            previous = previous + 1;
+        }
+        if (dp[index] > best) {
+            best = dp[index];
+        }
+        index = index + 1;
+    }
+
+    return best;
+}
+

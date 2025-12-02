@@ -1,0 +1,155 @@
+int[] append_value(int[] arr, int value) {
+    int[] single = {value};
+    int[] result = arr ++ single;
+    return result;
+}
+
+int[] set_value(int[] arr, int position, int value) {
+    int length = size(arr);
+    int[] result = {};
+    int index = 0;
+    while (index < length) {
+        int current = arr[index];
+        if (index == position) {
+            result = append_value(result, value);
+        } else {
+            result = append_value(result, current);
+        }
+        index = index + 1;
+    }
+    return result;
+}
+
+int[] swap_positions(int[] arr, int first, int second) {
+    int first_value = arr[first];
+    int second_value = arr[second];
+    int[] updated = set_value(arr, first, second_value);
+    updated = set_value(updated, second, first_value);
+    return updated;
+}
+
+int[] remove_last(int[] arr) {
+    int length = size(arr);
+    int limit = length - 1;
+    int[] result = {};
+    int index = 0;
+    while (index < limit) {
+        result = append_value(result, arr[index]);
+        index = index + 1;
+    }
+    return result;
+}
+
+int floor_half(int value) {
+    int result = 0;
+    int remaining = value;
+    while (remaining > 1) {
+        remaining = remaining - 2;
+        result = result + 1;
+    }
+    return result;
+}
+
+int parent_index(int index) {
+    if (index <= 0) {
+        return 0;
+    } else {
+        int adjusted = index - 1;
+        int parent = floor_half(adjusted);
+        return parent;
+    }
+}
+
+int[] sift_up(int[] heap, int index) {
+    int current = index;
+    int active = 1;
+    while (active == 1) {
+        if (current == 0) {
+            active = 0;
+        } else {
+            int parent = parent_index(current);
+            int current_value = heap[current];
+            int parent_value = heap[parent];
+            if (current_value > parent_value) {
+                heap = swap_positions(heap, current, parent);
+                current = parent;
+            } else {
+                active = 0;
+            }
+        }
+    }
+    return heap;
+}
+
+int[] sift_down(int[] heap, int index) {
+    int length = size(heap);
+    int current = index;
+    int active = 1;
+    while (active == 1) {
+        int left = current * 2 + 1;
+        if (left >= length) {
+            active = 0;
+        } else {
+            int right = left + 1;
+            int largest = current;
+            int largest_value = heap[largest];
+            int left_value = heap[left];
+            if (left_value > largest_value) {
+                largest = left;
+                largest_value = left_value;
+            }
+            if (right < length) {
+                int right_value = heap[right];
+                if (right_value > largest_value) {
+                    largest = right;
+                    largest_value = right_value;
+                }
+            }
+            if (largest != current) {
+                heap = swap_positions(heap, current, largest);
+                current = largest;
+            } else {
+                active = 0;
+            }
+        }
+    }
+    return heap;
+}
+
+int[] heap_insert(int[] heap, int value) {
+    int[] value_node = {value};
+    int[] new_heap = heap ++ value_node;
+    int last_index = size(new_heap);
+    last_index = last_index - 1;
+    new_heap = sift_up(new_heap, last_index);
+    return new_heap;
+}
+
+int[] heap_pop_max(int[] heap) {
+    int length = size(heap);
+    if (length == 0) {
+        return heap;
+    }
+    if (length == 1) {
+        int[] empty = {};
+        return empty;
+    }
+    int last_index = length - 1;
+    int last_value = heap[last_index];
+    int[] reduced = remove_last(heap);
+    int[] updated = set_value(reduced, 0, last_value);
+    updated = sift_down(updated, 0);
+    return updated;
+}
+
+int[] build_max_heap(int[] values) {
+    int length = size(values);
+    int[] heap = {};
+    int index = 0;
+    while (index < length) {
+        heap = heap_insert(heap, values[index]);
+        index = index + 1;
+    }
+    return heap;
+}
+
