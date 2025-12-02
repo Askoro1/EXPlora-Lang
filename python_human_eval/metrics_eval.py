@@ -85,7 +85,7 @@ TASKS = [
         ([[0, 0, 0], [7, 8, 9]], 0),
     ]),
 
-    ("sum_array", "sum_array.exp", "sum_array", [
+    ("sum_array", "reverse_number.exp", "sum_array", [
         ([[1, 2, 3, 4], 4], 10),
         ([[0, 0, 0], 3], 0),
         ([[-1, 2, -3, 4], 4], 2),
