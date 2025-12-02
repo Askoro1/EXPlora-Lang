@@ -1,0 +1,12 @@
+int read_bit(int[] data, int index) {
+    AI("Return data[index] if it exists, otherwise 0.");
+}
+
+int parity_value(int a, int b, int c) {
+    AI("Compute the parity bit (sum modulo 2) of a, b, and c.");
+}
+
+int[] hamming_encode(int[] data) {
+    AI("Produce the 7-bit Hamming(7,4) code word from up to four data bits.");
+}
+

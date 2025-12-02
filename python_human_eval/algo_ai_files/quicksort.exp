@@ -1,0 +1,8 @@
+int[] append_value(int[] arr, int value) {
+    AI("Append value to the end of arr and return the new array.");
+}
+
+int[] quicksort(int[] arr) {
+    AI("Implement quicksort that partitions around a pivot and recursively sorts the partitions.");
+}
+

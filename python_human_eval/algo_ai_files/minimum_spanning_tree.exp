@@ -1,0 +1,20 @@
+int[] append_int(int[] arr, int value) {
+    AI("Return a new array with value appended to arr.");
+}
+
+int[][] append_row(int[][] matrix, int[] row) {
+    AI("Return a new matrix with row appended as the last row.");
+}
+
+int[] set_value(int[] arr, int position, int value) {
+    AI("Return a copy of arr with the element at position replaced with value.");
+}
+
+int min_key_index(int[] key, int[] visited, int n) {
+    AI("Find the smallest key value among the unvisited vertices and return its index.");
+}
+
+int[][] minimum_spanning_tree(int[][] graph, int n) {
+    AI("Run Prim's algorithm on the adjacency matrix graph and return the list of MST edges as {u, v, weight} rows.");
+}
+

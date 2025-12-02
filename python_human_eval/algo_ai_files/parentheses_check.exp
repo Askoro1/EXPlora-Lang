@@ -1,0 +1,4 @@
+int is_valid_parentheses(string text, int length) {
+    AI("Scan text, maintain a balance counter for '(' and ')', and return 1 if the sequence is balanced and never negative.");
+}
+

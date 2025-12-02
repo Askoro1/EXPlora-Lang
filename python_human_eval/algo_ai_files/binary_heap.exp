@@ -1,0 +1,44 @@
+int[] append_value(int[] arr, int value) {
+    AI("Create a new array containing all values from arr plus value at the end.");
+}
+
+int[] set_value(int[] arr, int position, int value) {
+    AI("Return a copy of arr where the element at position is replaced with value.");
+}
+
+int[] swap_positions(int[] arr, int first, int second) {
+    AI("Swap the elements at indices first and second in a copy of arr and return it.");
+}
+
+int[] remove_last(int[] arr) {
+    AI("Return a copy of arr with the final element removed.");
+}
+
+int floor_half(int value) {
+    AI("Compute floor(value / 2) using repeated subtraction.");
+}
+
+int parent_index(int index) {
+    AI("Return the parent index for a node in a binary heap stored in an array.");
+}
+
+int[] sift_up(int[] heap, int index) {
+    AI("Bubble the element at index up the heap until the max-heap property is restored.");
+}
+
+int[] sift_down(int[] heap, int index) {
+    AI("Push the element at index down the heap by swapping with the larger child until valid.");
+}
+
+int[] heap_insert(int[] heap, int value) {
+    AI("Insert value into the max heap and return the new heap array.");
+}
+
+int[] heap_pop_max(int[] heap) {
+    AI("Remove the maximum element from the heap, reheapify, and return the updated array.");
+}
+
+int[] build_max_heap(int[] values) {
+    AI("Construct a max heap array by inserting each value from the input.");
+}
+
