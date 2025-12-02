@@ -1,5 +1,6 @@
+//int mul3(int a, int b, int c) {
+//    AI("Return the product a * b * c.");
+//}
 int mul3(int a, int b, int c) {
     return a * b * c;
 }
-
-int main() { return 0; }

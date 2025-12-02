@@ -1,3 +1,6 @@
+//int clamp_zero(int x) {
+//    AI("Clamp x at zero: if x < 0 return 0, otherwise return x.");
+//}
 int clamp_zero(int x) {
     if (x < 0) {
         return 0;
@@ -5,5 +8,3 @@ int clamp_zero(int x) {
         return x;
     }
 }
-
-int main() { return 0; }

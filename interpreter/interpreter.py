@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Tuple
+from numpy import ndarray
+
 from ..ast_nodes import *
 from .utils import (_np, NUMPY_ENABLED, RuntimeTypeError, RuntimeValue, shape_of_array, broadcast_shapes)
+from ..special_methods.work_with_files import csv_reader_native, csv_writer_native
 from .builtins_ import BUILTINS
 
 
@@ -30,6 +33,27 @@ class Interpreter:
             # wrap builtin into RuntimeValue as callable
             rv = RuntimeValue(fn, static_type=None, is_function=True, func_meta={'builtin': True, 'pyfunc': fn})
             self.global_frame.define(name, rv)
+
+        self.global_frame.define(
+            "csv_reader",
+            RuntimeValue(
+                None,
+                static_type=None,
+                is_function=True,
+                func_meta={'builtin': True, 'pyfunc': csv_reader_native}
+            )
+        )
+
+        self.global_frame.define(
+            "csv_writer",
+            RuntimeValue(
+                None,
+                static_type=None,
+                is_function=True,
+                func_meta={'builtin': True, 'pyfunc': csv_writer_native}
+            )
+        )
+
         # table of user-defined functions: name -> FunctionDef node
         self.functions: Dict[str, FunctionDef] = {}
         # Registry for record types: name -> { field_name: VarDecl }
@@ -236,11 +260,11 @@ class Interpreter:
     def eval_expression(self, node: Any, frame: Frame) -> RuntimeValue:
         if isinstance(node, PrimitiveLiteral):
             # node.value (int | float | bool)
-            rv = RuntimeValue(node.value, static_type=None)
+            rv = RuntimeValue(node.value, static_type=node.type)
             return rv
 
         if isinstance(node, StringLiteral):
-            rv = RuntimeValue(node.value, static_type=Type(base_type=PrimitiveType("string"), dimension=0))
+            rv = RuntimeValue(node.value, static_type=node.type)
             return rv
 
         if isinstance(node, ArrayLiteral):
@@ -354,9 +378,9 @@ class Interpreter:
             if fm.get('builtin', False):
                 args = [self.eval_expression(a, frame) for a in node.arguments]
                 if fm['pyfunc'].__name__ == "_builtin_ai_code_gen":
-                    return fm['pyfunc'](args, code=self.code)
+                    return fm['pyfunc'](*args, code=self.code)
                 else:
-                    return fm['pyfunc'](args)
+                    return fm['pyfunc'](*args)
 
             # now handle user-defined functions: either FunctionDef by name (node.function VarRef) or LambdaLiteral closure
 
@@ -445,21 +469,22 @@ class Interpreter:
             if len(ops) == 1:
                 a = ops[0].value
                 if node.operator == '-':
-                    return RuntimeValue(-a, static_type=None)
+                    return RuntimeValue(-a, static_type=a.static_type)
                 if node.operator == 'not':
-                    return RuntimeValue(_np.logical_not(a), static_type=None)
+                    return RuntimeValue(_np.logical_not(a), static_type=a.static_type)
                 if node.operator == 'sizeof':
                     if NUMPY_ENABLED and isinstance(a, _np.ndarray):
                         dim = a.shape[0] if a.ndim > 0 else 0
-                        return RuntimeValue(dim, static_type=None)
+                        return RuntimeValue(dim, static_type=Type(base_type=PrimitiveType("int"), dimension=0))
                     if isinstance(a, list):
-                        return RuntimeValue(len(a), static_type=None)
+                        return RuntimeValue(len(a), static_type=Type(base_type=PrimitiveType("int"), dimension=0))
                     raise RuntimeTypeError("sizeof expects an array")
             # binary
             if len(ops) == 2:
                 a = ops[0].value
                 b = ops[1].value
                 op = node.operator
+
                 # array-aware via numpy if possible
                 if NUMPY_ENABLED and (isinstance(a, _np.ndarray) or isinstance(b, _np.ndarray)):
                     try:
@@ -484,7 +509,13 @@ class Interpreter:
                                 raise RuntimeTypeError(f"Indexing error: {e}")
                         else:
                             raise RuntimeTypeError(f"Unsupported operator {op}")
-                        return RuntimeValue(res, static_type=None, shape=shape_of_array(res))
+
+                        if ops[0].static_type.dimension < ops[1].static_type.dimension:
+                            res_type = ops[0].static_type
+                        else:
+                            res_type = ops[1].static_type
+
+                        return RuntimeValue(res, static_type=res_type, shape=shape_of_array(res))
                     except Exception as e:
                         raise RuntimeTypeError(f"Array operator error: {e}")
                 # Python scalars / lists
@@ -514,7 +545,19 @@ class Interpreter:
                             raise RuntimeTypeError(f"Indexing error: {e}")
                     else:
                         raise RuntimeTypeError(f"Unsupported operator {op}")
-                    return RuntimeValue(res, static_type=None, shape=shape_of_array(res))
+
+                    res_type = None
+
+                    if res is bool:
+                        res_type = Type(base_type=PrimitiveType("bool"), dimension=0)
+                    elif res is int:
+                        res_type = Type(base_type=PrimitiveType("int"), dimension=0)
+                    elif res is float:
+                        res_type = Type(base_type=PrimitiveType("float"), dimension=0)
+                    elif res is str:
+                        res_type = Type(base_type=PrimitiveType("string"), dimension=0)
+
+                    return RuntimeValue(res, static_type=res_type, shape=shape_of_array(res))
                 except TypeError as e:
                     raise RuntimeTypeError(f"Operator error: {e}")
             raise RuntimeTypeError("OperatorCall with wrong arity")
@@ -588,7 +631,18 @@ class Interpreter:
                 rec_rv.value[node.lvalue.field_name] = r.value
                 return None
 
-            raise RuntimeTypeError("Unsupported lvalue in Assignment")
+            # --- OperatorCall("[]", ...): assign to array element ---
+            if isinstance(node.lvalue, OperatorCall) and node.lvalue.operator == "[]":
+                # Evaluate base recursively until we reach the final container
+                container = self.eval_expression(node.lvalue.operands[0], frame)
+                index = self.eval_expression(node.lvalue.operands[1], frame)
+                if not isinstance(container.value, ndarray):
+                    raise RuntimeTypeError("Assignment to index on non-array")
+                container.value[index.value] = r.value
+                return None
+
+            else:
+                raise RuntimeTypeError("Unsupported lvalue in Assignment")
 
         if isinstance(node, WhileLoop):
             while True:

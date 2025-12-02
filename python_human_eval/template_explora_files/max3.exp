@@ -1,0 +1,19 @@
+int max3(int a, int b, int c) {
+    int m = a;
+
+    if (b > m) {
+        m = b;
+    } else {
+        m = m;
+    }
+
+    if (c > m) {
+        m = c;
+    } else {
+        m = m;
+    }
+
+    return m;
+}
+
+int main() { return 0; }

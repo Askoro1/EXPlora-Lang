@@ -1,10 +1,11 @@
-//int is_positive(int x) {
-//    AI("Return 1 if x is greater than 0, otherwise return 0.");
-//}
 int is_positive(int x) {
     if (x > 0) {
         return 1;
     } else {
         return 0;
     }
+}
+
+int main() {
+    return 0;
 }

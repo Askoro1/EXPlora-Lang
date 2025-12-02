@@ -73,7 +73,7 @@ class Parser:
 
         return ArrayLiteral(value=values)
 
-    def parse_declaration(self):
+    def parse_declaration(self, prev_stmts=None):
         ttype = self.parse_type()
         name_token = self.expect(TokenType.ID)
         name = name_token.value
@@ -110,7 +110,7 @@ class Parser:
                 typename = self.next().value
                 init = self.parse_record_literal(typename)
             else:
-                init = self.parse_expression()
+                init = self.parse_expression(prev_stmts)
 
         self.expect(TokenType.OP, ";")
         if isinstance(init, LambdaLiteral):
@@ -202,10 +202,10 @@ class Parser:
         while not self.accept(TokenType.OP, "}"):
             if self.peek().type == TokenType.EOF:
                 raise ParserError("Unterminated block")
-            stmts.append(self.parse_statement())
+            stmts.append(self.parse_statement(stmts))
         return Block(statements=stmts)
 
-    def parse_statement(self):
+    def parse_statement(self, prev_stmts=None):
         t = self.peek()
 
         # Handle record declarations inside functions
@@ -225,7 +225,7 @@ class Parser:
                     i += 1
                 i += 1
             if i < len(self.tokens) and self.tokens[i].type == TokenType.ID:
-                decl = self.parse_declaration()
+                decl = self.parse_declaration(prev_stmts)
                 return DeclStmt(declaration=decl)
 
         # Control flow and blocks
@@ -239,7 +239,7 @@ class Parser:
                 self.next()
                 expr = None
                 if self.peek().type != TokenType.OP or self.peek().value != ";":
-                    expr = self.parse_expression()
+                    expr = self.parse_expression(prev_stmts)
                 self.expect(TokenType.OP, ";")
                 return ExprStmt(expr)
 
@@ -248,7 +248,7 @@ class Parser:
             return self.parse_block()
 
         # Otherwise, normal expression
-        expr = self.parse_expression()
+        expr = self.parse_expression(prev_stmts)
         self.expect(TokenType.OP, ";")
 
         if isinstance(expr, Assignment):
@@ -289,7 +289,7 @@ class Parser:
     }
     RIGHT_ASSOC = {"="}
 
-    def parse_expression(self, min_prec=0):
+    def parse_expression(self, prev_stmts=None, min_prec=0):
         # --- Detect lambda literal early ---
         if (self.peek().type == TokenType.OP and self.peek().value == "[" and
                 self.pos + 1 < len(self.tokens) and
@@ -298,7 +298,7 @@ class Parser:
             return self.parse_lambda_literal()
 
         # --- Otherwise, normal expression parsing ---
-        node = self.parse_primary()
+        node = self.parse_primary(prev_stmts)
 
         while True:
             tok = self.peek()
@@ -308,7 +308,7 @@ class Parser:
                 if prec < min_prec:
                     break
                 self.next()
-                rhs = self.parse_expression(prec + (0 if op in self.RIGHT_ASSOC else 1))
+                rhs = self.parse_expression(prev_stmts, prec + (0 if op in self.RIGHT_ASSOC else 1))
                 if op == "=":
                     node = Assignment(lvalue=node, rvalue=rhs)
                 else:
@@ -317,7 +317,7 @@ class Parser:
                 break
         return node
 
-    def parse_primary(self):
+    def parse_primary(self, prev_stmts=None):
         tok = self.peek()
 
         if tok.type == TokenType.KW and tok.value == "auto":
@@ -326,37 +326,42 @@ class Parser:
         elif tok.type == TokenType.NUMBER:
             self.next()
             val = float(tok.value) if ('.' in tok.value or 'e' in tok.value or 'E' in tok.value) else int(tok.value)
-            return PrimitiveLiteral(val)
+            return PrimitiveLiteral(val, type=Type(base_type=PrimitiveType("int"), dimension=0))
 
         elif tok.type == TokenType.STRING:
             self.next()
             inner = tok.value[1:-1]
             value = bytes(inner, "utf-8").decode("unicode_escape")
-            return StringLiteral(value=value)
+            return StringLiteral(value=value, type=Type(base_type=PrimitiveType("string"), dimension=0))
 
         elif tok.type == TokenType.CHAR:
             self.next()
             inner = tok.value[1:-1]
             value = bytes(inner, "utf-8").decode("unicode_escape")
-            return PrimitiveLiteral(value)
+            return PrimitiveLiteral(value, type=Type(base_type=PrimitiveType("char"), dimension=0))
 
         elif tok.type == TokenType.KW and tok.value in {"true", "false"}:
             self.next()
-            return PrimitiveLiteral(tok.value == "true")
+            return PrimitiveLiteral(tok.value == "true", type=Type(base_type=PrimitiveType("bool"), dimension=0))
 
         elif tok.type == TokenType.ID:
             self.next()
             node: Expression = VarRef(tok.value)
             # Record literal: Type { ... }
+            for i in (prev_stmts or []):
+                if isinstance(i, DeclStmt) and i.declaration.name == node.name:
+                    node.type = i.declaration.type
+
             if self.peek().type == TokenType.OP and self.peek().value == "{":
                 return self.parse_record_literal(tok.value)
             # Function calls and indexing
             while True:
+                # Function call: f(...)
                 if self.accept(TokenType.OP, "("):
                     args = []
                     if not self.accept(TokenType.OP, ")"):
                         while True:
-                            args.append(self.parse_expression())
+                            args.append(self.parse_expression(prev_stmts))
                             if self.accept(TokenType.OP, ")"):
                                 break
                             self.expect(TokenType.OP, ",")
@@ -374,10 +379,33 @@ class Parser:
                     else:
                         node = FunctionCall(function=node, arguments=args)
                     continue
+
+                # ---------------------------
+                # Field access: p.x , a.b.c
+                # ---------------------------
+                if self.accept(TokenType.OP, "."):
+                    field_tok = self.expect(TokenType.ID)
+                    node = FieldRef(
+                        record=node,
+                        field_name=field_tok.value
+                    )
+                    continue
+
+                # ---------------------------
+                # Array indexing: a[expr], arr[0][0], (expr)[i]
+                # ---------------------------
+                if self.accept(TokenType.OP, "["):
+                    # parse index expression
+                    index_expr = self.parse_expression()
+                    self.expect(TokenType.OP, "]")
+                    # represent indexing as OperatorCall with operator "[]"
+                    node = OperatorCall(operator="[]", operands=[node, index_expr])
+                    continue
+
                 break
             return node
 
-        # ✅ Handle lambdas early and clearly
+        # Handle lambdas early and clearly
         elif tok.type == TokenType.OP and tok.value == "[":
             # Make sure it’s a lambda like [](...)
             # (don’t eat tokens blindly if it’s array indexing)
@@ -447,6 +475,7 @@ if __name__ == "__main__":
         int f = [](int x, int y) { return x + y; };
         
         Point p = Point(1, 2);
+        p.x = 10;
         
         int[4][2] arr = {
             {1, 2},
@@ -477,7 +506,7 @@ if __name__ == "__main__":
         }
 
         int result = add(x, 5);
-        return result;
+        return result + p.x;
     }
     """
 

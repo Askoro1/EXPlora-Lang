@@ -1,10 +1,11 @@
-//int max(int a, int b) {
-//    AI("Return the larger of a and b.");
-//}
 int max(int a, int b) {
     if (a > b) {
         return a;
     } else {
         return b;
     }
+}
+
+int main() {
+    return 0;
 }

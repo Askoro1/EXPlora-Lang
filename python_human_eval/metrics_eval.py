@@ -69,6 +69,7 @@ TASKS = [
     ("same_parity", "same_parity.exp", "same_parity",
      [([2, 4], 1), ([2, 3], 0), ([5, 7], 1)]),
 
+<<<<<<< HEAD
     ("is_prime", "is_prime.exp", "is_prime",
      [([2], 1), ([3], 1), ([4], 0), ([17], 1), ([1], 0)]),
 
@@ -78,6 +79,24 @@ TASKS = [
     ("is_palindrome", "is_palindrome.exp", "is_palindrome",
      [([121], 1), ([123], 0), ([9], 1)]),
 
+=======
+    ("dot", "dot_product.exp", "dot", [
+        ([[1, 2, 3], [4, 5, 6]], 32),
+        ([[0, 0, 0], [7, 8, 9]], 0),
+    ]),
+
+    ("sum_array", "sum_array.exp", "sum_array", [
+        ([[1, 2, 3, 4], 4], 10),
+        ([[0, 0, 0], 3], 0),
+        ([[-1, 2, -3, 4], 4], 2),
+    ]),
+
+    ("matrix_sum", "matrix_sum.exp", "matrix_sum", [
+        ([[[1, 2], [3, 4]]], 10),
+        ([[[0, 0], [0, 0]]], 0),
+        ([[[-1, 2], [-3, 4]]], 2),
+    ]),
+>>>>>>> work-with-data
 ]
 
 def main():

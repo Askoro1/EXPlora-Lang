@@ -1,5 +1,9 @@
+//float average2(int a, int b) {
+//    AI("Return the floating point average of a and b.");
+//}
 float average2(int a, int b) {
-    return (a + b) / 2;
+    int sum = a + b;
+    float floatSum = sum;
+    float average = floatSum / 2.0;
+    return average;
 }
-
-int main() { return 0; }
