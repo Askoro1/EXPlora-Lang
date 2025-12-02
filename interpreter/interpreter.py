@@ -378,9 +378,9 @@ class Interpreter:
             if fm.get('builtin', False):
                 args = [self.eval_expression(a, frame) for a in node.arguments]
                 if fm['pyfunc'].__name__ == "_builtin_ai_code_gen":
-                    return fm['pyfunc'](*args, code=self.code)
+                    return fm['pyfunc'](args, code=self.code)
                 else:
-                    return fm['pyfunc'](*args)
+                    return fm['pyfunc'](args)
 
             # now handle user-defined functions: either FunctionDef by name (node.function VarRef) or LambdaLiteral closure
 

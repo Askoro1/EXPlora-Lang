@@ -32,6 +32,8 @@ int main() {
     };
 
     Point p = Point { x: 1, y: 2 };
+    p.x = 10;
+    print(p.x);
 
     if (x < 20) {
         x = x + 1;
