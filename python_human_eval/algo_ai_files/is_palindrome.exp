@@ -1,0 +1,4 @@
+int is_palindrome(int n) {
+    AI("Check whether integer n reads the same forwards and backwards and return 1 for true, 0 otherwise.");
+}
+

@@ -1,0 +1,4 @@
+int is_substring(string text, int text_length, string pattern, int pattern_length) {
+    AI("Use a sliding window to check whether pattern occurs inside text and return 1 for success, otherwise 0.");
+}
+

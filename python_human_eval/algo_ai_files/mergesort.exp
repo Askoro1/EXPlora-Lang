@@ -1,0 +1,20 @@
+int[] append_value(int[] arr, int value) {
+    AI("Return a new array formed by adding value to the end of arr.");
+}
+
+int half(int value) {
+    AI("Compute floor(value / 2) using integer operations only.");
+}
+
+int[] slice_range(int[] arr, int start, int end) {
+    AI("Build a new array that contains the elements of arr from start (inclusive) to end (exclusive).");
+}
+
+int[] merge_arrays(int[] left, int[] right) {
+    AI("Merge two sorted arrays into a single sorted array by repeatedly choosing the smaller head element.");
+}
+
+int[] mergesort(int[] arr) {
+    AI("Implement mergesort by splitting the array, recursively sorting halves, and merging them.");
+}
+

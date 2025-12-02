@@ -1,0 +1,4 @@
+int is_prime(int n) {
+    AI("Determine whether n is a prime number and return 1 for prime, 0 otherwise.");
+}
+
